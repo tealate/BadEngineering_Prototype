@@ -62,3 +62,17 @@ PvE協力型アクションゲーム。
 
 7\. Apply recoil to vehicle
 
+
+\## Project Documentation
+
+
+このプロジェクトの企画書は、以下のNotionページを一次資料として参照する。
+
+
+\- [BadEngineering](https://app.notion.com/p/dfe1fd1a615183c08d2c0193458ec5ef?pvs=204)
+
+
+実装・設計・優先順位を判断する際は、必要に応じてこのページと配下の企画資料を確認する。
+
+企画書と既存実装に矛盾がある場合は、勝手に仕様を決めず、差分をユーザーへ確認する。
+
