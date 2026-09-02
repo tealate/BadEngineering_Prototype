@@ -1,4 +1,5 @@
 using BadEngineering.Player;
+using BadEngineering.Interaction;
 using BadEngineering.UI;
 using BadEngineering.Weapons;
 using UnityEditor;
@@ -65,6 +66,7 @@ namespace BadEngineering.Editor
             CreateTestWeapon(player.transform);
             player.AddComponent<PlayerWeaponSlots>();
             player.AddComponent<FirstPersonRigidbodyController>();
+            player.AddComponent<PlayerInteractor>();
         }
 
         private static void CreateTestWeapon(Transform playerTransform)
