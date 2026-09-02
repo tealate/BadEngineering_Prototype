@@ -7,8 +7,16 @@ namespace BadEngineering.Player
     [RequireComponent(typeof(Rigidbody), typeof(CapsuleCollider))]
     public sealed class FirstPersonRigidbodyController : MonoBehaviour
     {
+        public enum PhysicalState
+        {
+            Normal,
+            Uncontrolled,
+            Recovering
+        }
+
         [Header("References")]
         [SerializeField] private Camera playerCamera;
+        [SerializeField] private Transform headPivot;
         [SerializeField] private PlayerWeaponSlots weaponSlots;
 
         [Header("Movement")]
@@ -29,7 +37,14 @@ namespace BadEngineering.Player
         [Header("Recoil Loss of Control")]
         [SerializeField, Min(0f)] private float lossOfControlImpulse = 2.5f;
         [SerializeField, Min(0f)] private float minimumUncontrolledDuration = 0.6f;
+        [SerializeField, Min(0f)] private float uncontrolledAngularDamping = 2f;
         [SerializeField, Min(0f)] private float recoveryAngularSpeed = 1.5f;
+        [SerializeField, Min(0f)] private float recoveryLinearSpeed = 0.5f;
+        [SerializeField, Min(0f)] private float recoveryTorque = 20f;
+        [SerializeField, Min(0f)] private float recoveryAngularDamping = 5f;
+        [SerializeField, Range(0f, 10f)] private float uprightAngleTolerance = 0.5f;
+        [SerializeField, Min(0f)] private float recoveryCompletionAngularSpeed = 0.15f;
+        [SerializeField, Min(0f)] private float recoveryStableDuration = 0.25f;
 
         private readonly RaycastHit[] groundHits = new RaycastHit[8];
 
@@ -38,12 +53,16 @@ namespace BadEngineering.Player
         private Vector2 moveInput;
         private float yaw;
         private float pitch;
+        private float freeLookYaw;
         private bool jumpQueued;
         private bool isGrounded;
-        private bool isUncontrolled;
+        private PhysicalState physicalState;
         private float uncontrolledUntil;
+        private float stableSince = -1f;
+        private float normalAngularDamping;
 
-        public bool IsUncontrolled => isUncontrolled;
+        public bool IsUncontrolled => physicalState == PhysicalState.Uncontrolled;
+        public PhysicalState CurrentPhysicalState => physicalState;
 
         private void Awake()
         {
@@ -60,7 +79,14 @@ namespace BadEngineering.Player
                 weaponSlots = GetComponent<PlayerWeaponSlots>();
             }
 
+            if (headPivot == null && playerCamera != null)
+            {
+                headPivot = playerCamera.transform.parent;
+            }
+
             yaw = transform.eulerAngles.y;
+            normalAngularDamping = body.angularDamping;
+            body.constraints |= RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
             LockCursor();
         }
 
@@ -75,9 +101,15 @@ namespace BadEngineering.Player
         {
             isGrounded = CheckGrounded();
 
-            if (isUncontrolled)
+            if (physicalState == PhysicalState.Uncontrolled)
             {
-                TryRecoverControl();
+                TryStartRecovering();
+                return;
+            }
+
+            if (physicalState == PhysicalState.Recovering)
+            {
+                ApplyRecoveryTorque();
                 return;
             }
 
@@ -96,7 +128,7 @@ namespace BadEngineering.Player
 
         private void ReadInput()
         {
-            if (isUncontrolled)
+            if (physicalState != PhysicalState.Normal)
             {
                 moveInput = Vector2.zero;
                 jumpQueued = false;
@@ -129,20 +161,27 @@ namespace BadEngineering.Player
         private void UpdateLook()
         {
             Mouse mouse = Mouse.current;
-            if (isUncontrolled || mouse == null || playerCamera == null)
+            if (mouse == null || headPivot == null)
             {
                 return;
             }
 
             Vector2 lookDelta = mouse.delta.ReadValue() * mouseSensitivity;
-            yaw += lookDelta.x;
+            if (physicalState == PhysicalState.Normal)
+            {
+                yaw += lookDelta.x;
+            }
+            else
+            {
+                freeLookYaw += lookDelta.x;
+            }
             pitch = Mathf.Clamp(pitch - lookDelta.y, -verticalLookLimit, verticalLookLimit);
-            playerCamera.transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+            headPivot.localRotation = Quaternion.Euler(pitch, freeLookYaw, 0f);
         }
 
         private void ReadWeaponInput()
         {
-            if (weaponSlots == null || isUncontrolled)
+            if (weaponSlots == null)
             {
                 return;
             }
@@ -190,6 +229,13 @@ namespace BadEngineering.Player
 
         private void ApplyRotation()
         {
+            if (!Mathf.Approximately(freeLookYaw, 0f))
+            {
+                yaw += freeLookYaw;
+                freeLookYaw = 0f;
+                headPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+            }
+
             body.MoveRotation(Quaternion.Euler(0f, yaw, 0f));
         }
 
@@ -204,44 +250,65 @@ namespace BadEngineering.Player
 
         private void EnterUncontrolledState()
         {
-            if (isUncontrolled)
-            {
-                uncontrolledUntil = Mathf.Max(uncontrolledUntil, Time.time + minimumUncontrolledDuration);
-                return;
-            }
-
-            isUncontrolled = true;
             uncontrolledUntil = Time.time + minimumUncontrolledDuration;
+            physicalState = PhysicalState.Uncontrolled;
+            stableSince = -1f;
             jumpQueued = false;
             moveInput = Vector2.zero;
-            body.constraints = RigidbodyConstraints.None;
+            body.angularDamping = Mathf.Max(normalAngularDamping, uncontrolledAngularDamping);
+            body.constraints &= ~(RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ);
         }
 
-        private void TryRecoverControl()
+        private void TryStartRecovering()
         {
-            if (Time.time < uncontrolledUntil || !isGrounded || body.angularVelocity.magnitude > recoveryAngularSpeed)
+            if (Time.time < uncontrolledUntil || !isGrounded ||
+                body.linearVelocity.magnitude > recoveryLinearSpeed ||
+                body.angularVelocity.magnitude > recoveryAngularSpeed)
             {
                 return;
             }
 
-            Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
-            if (forward.sqrMagnitude < 0.001f)
+            physicalState = PhysicalState.Recovering;
+            body.angularDamping = Mathf.Max(normalAngularDamping, recoveryAngularDamping);
+            stableSince = -1f;
+        }
+
+        private void ApplyRecoveryTorque()
+        {
+            Vector3 uprightAxis = Vector3.Cross(transform.up, Vector3.up);
+            if (uprightAxis.sqrMagnitude < 0.0001f && Vector3.Dot(transform.up, Vector3.up) < 0f)
             {
-                forward = Vector3.forward;
+                uprightAxis = transform.right;
             }
 
-            Quaternion uprightRotation = Quaternion.LookRotation(forward.normalized, Vector3.up);
-            body.angularVelocity = Vector3.zero;
-            body.rotation = uprightRotation;
-            body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-            yaw = uprightRotation.eulerAngles.y;
-            pitch = 0f;
-            if (playerCamera != null)
-            {
-                playerCamera.transform.localRotation = Quaternion.identity;
-            }
+            body.AddTorque(uprightAxis * recoveryTorque, ForceMode.Acceleration);
 
-            isUncontrolled = false;
+            float uprightError = Vector3.Angle(transform.up, Vector3.up);
+            if (uprightError <= uprightAngleTolerance &&
+                body.angularVelocity.magnitude <= recoveryCompletionAngularSpeed)
+            {
+                if (stableSince < 0f)
+                {
+                    stableSince = Time.time;
+                }
+                else if (Time.time - stableSince >= recoveryStableDuration)
+                {
+                    EnterNormalState();
+                }
+            }
+            else
+            {
+                stableSince = -1f;
+            }
+        }
+
+        private void EnterNormalState()
+        {
+            physicalState = PhysicalState.Normal;
+            body.angularDamping = normalAngularDamping;
+            body.constraints |= RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            yaw = transform.eulerAngles.y;
+            stableSince = -1f;
         }
 
         private void ApplyMovement()
