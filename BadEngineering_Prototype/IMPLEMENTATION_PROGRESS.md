@@ -46,8 +46,13 @@ This file is the compact resume point for `BadEngineering_SpecificationDiagram.m
 - Extended smoke coverage for drop/pickup, Crew enter/exit and two independent
   weapon owners attaching to the same Vehicle Rigidbody.
 - Scene build compiled without warnings and the extended Play Mode smoke test passed.
+- Fixed attached-weapon drop position/velocity, weapon destruction cleanup, and release
+  of active weapon inputs when entering Driver state.
+- Fixed station hierarchy scaling and moved exit markers outside the chassis.
+- Added live Vehicle mass/COM HUD feedback.
+- Final scene rebuild and expanded smoke test passed without warnings/exceptions.
 
 ## Next
 
-- Commit Player physics separation and expanded multi-owner validation.
-- Review lifecycle/interaction edge cases and final specification coverage.
+- Commit final lifecycle, station and observability fixes.
+- Produce final clean status/log and optional standalone build verification.

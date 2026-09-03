@@ -139,6 +139,17 @@ namespace BadEngineering.Weapons
         public virtual void SecondaryReleased() { }
         protected virtual void OnStateChanged() { }
 
+        protected virtual void OnDestroy()
+        {
+            PlayerWeaponSlots previousOwner = Owner;
+            WeaponHost previousHost = Host?.HostBehaviour as WeaponHost;
+            Owner = null;
+            Host = null;
+            State = WeaponState.Dropped;
+            previousOwner?.RemoveOwnedWeapon(this);
+            previousHost?.RefreshMassProperties();
+        }
+
         private void SetPhysicalMode(WeaponState state)
         {
             bool dropped = state == WeaponState.Dropped;

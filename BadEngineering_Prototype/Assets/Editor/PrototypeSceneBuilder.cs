@@ -160,19 +160,23 @@ namespace BadEngineering.Editor
 
         private static void CreateStation(Transform vehicle, string name, VehicleStationType type, Vector3 localPosition)
         {
-            GameObject station = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            GameObject station = new GameObject(name);
             station.name = name;
             station.transform.SetParent(vehicle, false);
             station.transform.localPosition = localPosition;
-            station.transform.localScale = new Vector3(0.18f, 0.55f, 0.18f);
+
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.name = "Interaction Marker";
+            visual.transform.SetParent(station.transform, false);
+            visual.transform.localScale = new Vector3(0.36f, 1.1f, 0.36f);
 
             GameObject operating = new GameObject("Operating Position");
             operating.transform.SetParent(station.transform, false);
-            operating.transform.localPosition = Vector3.up * 0.2f;
+            operating.transform.localPosition = Vector3.up * 0.45f;
 
             GameObject exit = new GameObject("Exit Position");
             exit.transform.SetParent(vehicle, false);
-            exit.transform.localPosition = new Vector3(type == VehicleStationType.Driver ? -0.85f : 0.85f, 0.4f, 0f);
+            exit.transform.localPosition = new Vector3(type == VehicleStationType.Driver ? -2.2f : 2.2f, 1.1f, 0f);
 
             VehicleInteractionPoint point = station.AddComponent<VehicleInteractionPoint>();
             SerializedObject serialized = new SerializedObject(point);

@@ -11,6 +11,7 @@ namespace BadEngineering.UI
         [SerializeField] private PlayerWeaponSlots weaponSlots;
         [SerializeField] private FirstPersonRigidbodyController playerController;
         [SerializeField] private VehicleStationUser stationUser;
+        [SerializeField] private VehiclePhysicsController vehicle;
 
         private readonly SlotView[] slotViews = new SlotView[3];
         private readonly Color selectedColor = new Color(0.95f, 0.62f, 0.12f, 0.95f);
@@ -36,6 +37,10 @@ namespace BadEngineering.UI
             if (stationUser == null && weaponSlots != null)
             {
                 stationUser = weaponSlots.GetComponent<VehicleStationUser>();
+            }
+            if (vehicle == null)
+            {
+                vehicle = FindFirstObjectByType<VehiclePhysicsController>();
             }
 
             Refresh();
@@ -117,7 +122,11 @@ namespace BadEngineering.UI
             string station = stationUser == null || !stationUser.IsUsingStation
                 ? "On Foot"
                 : stationUser.CurrentStation.StationType.ToString();
+            string vehiclePhysics = vehicle != null
+                ? $"Vehicle: {vehicle.Body.mass:0.#} kg | COM {vehicle.Body.centerOfMass:F2}"
+                : "Vehicle: unavailable";
             statusLabel.text = $"State: {physical} | Station: {station}\n" +
+                               vehiclePhysics + "\n" +
                                "WASD Move/Drive  Space Jump  Mouse Look/Fire\n" +
                                "E Interact/Pickup/Attach/Recover/Exit  Q Drop  1-3 Select";
         }

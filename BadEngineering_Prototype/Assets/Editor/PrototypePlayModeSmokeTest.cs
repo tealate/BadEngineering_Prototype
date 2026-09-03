@@ -123,6 +123,8 @@ namespace BadEngineering.Editor
                 "Player B weapon could not attach to shared Vehicle.");
             Assert(secondWeapon.Owner == secondSlots, "Player B ownership changed on shared Vehicle.");
             Assert(vehicleHost.Body.mass > initialMass, "Second owner's weapon did not contribute to shared Vehicle mass.");
+            Assert(vehicleHost.Body.centerOfMass.x < 0f,
+                "Off-center weapon did not shift shared Vehicle center of mass.");
 
             Object.DestroyImmediate(secondPlayer);
             Object.DestroyImmediate(weaponObject);

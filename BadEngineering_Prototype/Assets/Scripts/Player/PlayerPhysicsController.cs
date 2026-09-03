@@ -66,6 +66,10 @@ namespace BadEngineering.Player
 
         public void ApplyImpulse(Vector3 impulse, Vector3 forcePosition)
         {
+            if (body.isKinematic)
+            {
+                return;
+            }
             body.AddForceAtPosition(impulse, forcePosition, ForceMode.Impulse);
             if (impulse.magnitude >= lossOfControlImpulse)
             {

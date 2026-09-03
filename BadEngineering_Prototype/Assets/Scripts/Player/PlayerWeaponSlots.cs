@@ -104,8 +104,13 @@ namespace BadEngineering.Player
             }
 
             Rigidbody body = GetComponent<Rigidbody>();
-            Vector3 position = transform.position + transform.forward * dropDistance + Vector3.up * 0.5f;
-            weapon.Drop(position, body.linearVelocity);
+            Vector3 position = weapon.State == WeaponState.Attached
+                ? weapon.transform.position + Vector3.up * 0.2f
+                : transform.position + transform.forward * dropDistance + Vector3.up * 0.5f;
+            Vector3 inheritedVelocity = weapon.Host?.Body != null
+                ? weapon.Host.Body.GetPointVelocity(position)
+                : body.linearVelocity;
+            weapon.Drop(position, inheritedVelocity);
         }
 
         public void PrimaryPressed() => EquippedWeapon?.PrimaryPressed();

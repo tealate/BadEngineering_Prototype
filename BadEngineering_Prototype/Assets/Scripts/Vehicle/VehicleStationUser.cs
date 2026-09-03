@@ -1,4 +1,5 @@
 using UnityEngine;
+using BadEngineering.Player;
 
 namespace BadEngineering.Vehicle
 {
@@ -29,6 +30,12 @@ namespace BadEngineering.Vehicle
             }
 
             CurrentStation = station;
+            if (station.StationType == VehicleStationType.Driver)
+            {
+                PlayerWeaponSlots slots = GetComponent<PlayerWeaponSlots>();
+                slots?.PrimaryReleased();
+                slots?.SecondaryReleased();
+            }
             if (body != null)
             {
                 body.linearVelocity = Vector3.zero;
