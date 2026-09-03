@@ -48,4 +48,5 @@ The repository includes editor entry points used from Unity batch mode:
 - `BadEngineering.Editor.PrototypePlayModeSmokeTest.RunFromCommandLine`
 
 The latest scene generation and Play Mode smoke runs passed under Unity 6000.3.23f1
-without C# warnings or runtime exceptions.
+without C# warnings or runtime exceptions. A Windows 64-bit Standalone Player build also
+completed with `Result: Success`.
