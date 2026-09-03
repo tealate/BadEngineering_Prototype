@@ -1,5 +1,6 @@
 using UnityEngine;
 using BadEngineering.Player;
+using BadEngineering.Combat;
 
 namespace BadEngineering.Weapons
 {
@@ -9,6 +10,7 @@ namespace BadEngineering.Weapons
         [SerializeField, Min(0f)] private float projectileSpeed = 28f;
         [SerializeField, Min(0f)] private float projectileLifetime = 3f;
         [SerializeField, Min(0f)] private float recoilImpulse = 65f;
+        [SerializeField, Min(0f)] private float projectileDamage = 25f;
 
         public override void PrimaryPressed()
         {
@@ -26,6 +28,7 @@ namespace BadEngineering.Weapons
             projectileBody.mass = 0.1f;
             projectileBody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             projectileBody.linearVelocity = muzzle.forward * projectileSpeed;
+            projectile.AddComponent<Projectile>().Initialize(projectileDamage, projectileLifetime, gameObject);
 
             Vector3 recoil = -muzzle.forward * recoilImpulse;
             var controller = Host?.HostBehaviour != null
@@ -39,7 +42,6 @@ namespace BadEngineering.Weapons
             {
                 HostBody?.AddForceAtPosition(recoil, muzzle.position, ForceMode.Impulse);
             }
-            Destroy(projectile, projectileLifetime);
         }
     }
 }

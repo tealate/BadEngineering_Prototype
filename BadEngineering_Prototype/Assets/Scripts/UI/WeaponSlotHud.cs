@@ -1,4 +1,5 @@
 using BadEngineering.Player;
+using BadEngineering.Vehicle;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,14 +9,18 @@ namespace BadEngineering.UI
     public sealed class WeaponSlotHud : MonoBehaviour
     {
         [SerializeField] private PlayerWeaponSlots weaponSlots;
+        [SerializeField] private FirstPersonRigidbodyController playerController;
+        [SerializeField] private VehicleStationUser stationUser;
 
         private readonly SlotView[] slotViews = new SlotView[3];
         private readonly Color selectedColor = new Color(0.95f, 0.62f, 0.12f, 0.95f);
         private readonly Color normalColor = new Color(0.08f, 0.08f, 0.08f, 0.8f);
+        private TextMeshProUGUI statusLabel;
 
         private void Awake()
         {
             BuildLayout();
+            BuildStatus();
         }
 
         private void Update()
@@ -24,8 +29,32 @@ namespace BadEngineering.UI
             {
                 weaponSlots = FindFirstObjectByType<PlayerWeaponSlots>();
             }
+            if (playerController == null)
+            {
+                playerController = FindFirstObjectByType<FirstPersonRigidbodyController>();
+            }
+            if (stationUser == null && weaponSlots != null)
+            {
+                stationUser = weaponSlots.GetComponent<VehicleStationUser>();
+            }
 
             Refresh();
+        }
+
+        private void BuildStatus()
+        {
+            var status = new GameObject("Status and Controls", typeof(RectTransform), typeof(TextMeshProUGUI));
+            RectTransform rect = status.GetComponent<RectTransform>();
+            rect.SetParent(transform, false);
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(24f, -24f);
+            rect.sizeDelta = new Vector2(650f, 150f);
+            statusLabel = status.GetComponent<TextMeshProUGUI>();
+            statusLabel.font = TMP_Settings.defaultFontAsset;
+            statusLabel.fontSize = 20f;
+            statusLabel.color = Color.white;
         }
 
         private void BuildLayout()
@@ -83,6 +112,14 @@ namespace BadEngineering.UI
                 slotViews[i].Background.color = selected ? selectedColor : normalColor;
                 slotViews[i].Label.text = label;
             }
+
+            string physical = playerController != null ? playerController.CurrentPhysicalState.ToString() : "Unknown";
+            string station = stationUser == null || !stationUser.IsUsingStation
+                ? "On Foot"
+                : stationUser.CurrentStation.StationType.ToString();
+            statusLabel.text = $"State: {physical} | Station: {station}\n" +
+                               "WASD Move/Drive  Space Jump  Mouse Look/Fire\n" +
+                               "E Interact/Pickup/Attach/Recover/Exit  Q Drop  1-3 Select";
         }
 
         private void WeaponSlotText(int index, out string label, out bool selected)
@@ -95,7 +132,9 @@ namespace BadEngineering.UI
             }
 
             var weapon = weaponSlots.GetWeapon(index);
-            label = weapon == null ? $"{index + 1}: Empty" : $"{index + 1}: {weapon.DisplayName}";
+            label = weapon == null
+                ? $"{index + 1}: Empty"
+                : $"{index + 1}: {weapon.DisplayName} [{weapon.State}]";
         }
 
         private readonly struct SlotView

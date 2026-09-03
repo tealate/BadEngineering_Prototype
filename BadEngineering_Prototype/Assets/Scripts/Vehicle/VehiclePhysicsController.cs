@@ -16,6 +16,7 @@ namespace BadEngineering.Vehicle
 
         private Rigidbody body;
         private Vector2 driveInput;
+        private float baseMass;
 
         public Rigidbody Body => body;
         public Vector2 DriveInput => driveInput;
@@ -23,6 +24,7 @@ namespace BadEngineering.Vehicle
         private void Awake()
         {
             body = GetComponent<Rigidbody>();
+            baseMass = body.mass;
             if (centerOfMassMarker != null)
             {
                 body.centerOfMass = transform.InverseTransformPoint(centerOfMassMarker.position);
@@ -40,11 +42,15 @@ namespace BadEngineering.Vehicle
             float driveAcceleration = driveInput.y >= 0f ? acceleration : reverseAcceleration;
             if (Mathf.Abs(localVelocity.z) < maximumSpeed || Mathf.Sign(driveInput.y) != Mathf.Sign(localVelocity.z))
             {
-                body.AddForce(transform.forward * (driveInput.y * driveAcceleration), ForceMode.Acceleration);
+                body.AddForce(
+                    transform.forward * (driveInput.y * driveAcceleration * baseMass),
+                    ForceMode.Force);
             }
 
             float speedFactor = Mathf.Clamp01(Mathf.Abs(localVelocity.z) / 2f);
-            body.AddTorque(transform.up * (driveInput.x * steeringAcceleration * speedFactor), ForceMode.Acceleration);
+            body.AddTorque(
+                transform.up * (driveInput.x * steeringAcceleration * speedFactor * baseMass),
+                ForceMode.Force);
             body.AddForce(-transform.right * (localVelocity.x * lateralGrip), ForceMode.Acceleration);
         }
     }

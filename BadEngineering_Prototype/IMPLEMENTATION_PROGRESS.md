@@ -32,8 +32,19 @@ This file is the compact resume point for `BadEngineering_SpecificationDiagram.m
 - Added arbitrary hit-position vehicle attachment surface.
 - Added Rigidbody vehicle physics and Driver/Crew station state.
 - Unity 6000.3.23f1 compiled `Assembly-CSharp.dll` successfully at 01:49.
+- Added attached weapon mass/center-of-mass contribution to vehicle hosts.
+- Added attached weapon recovery, collision-triggered Player knockdown and state HUD.
+- Added projectile damage, health and simple Rigidbody PvE targets.
+- Expanded the scene builder and regenerated `PrototypeTest.unity` successfully.
+- Added `PROTOTYPE_GUIDE.md` with controls, test loop and architecture snapshot.
+- Fixed camera hierarchy so pitch affects `HeadPivot`, not the Player Rigidbody.
+- Added scene-structure validation and automatic Build Settings registration.
+- Added command-line Play Mode smoke test covering initialization, attach/recover,
+  host recoil projectile spawn, vehicle mass, Driver enter/exit and Player knockdown.
+- First Play Mode smoke run passed; it exposed kinematic velocity warnings, now fixed.
 
 ## Next
 
-- Harden station transitions and driving/look restrictions.
-- Expand the generated prototype scene for end-to-end testing.
+- Re-run warning-free scene build and Play Mode smoke test.
+- Commit the physics/PvE/scene validation increment.
+- Review specification coverage and implement remaining high-value gaps.

@@ -37,6 +37,7 @@ namespace BadEngineering.Player
 
         [Header("Recoil Loss of Control")]
         [SerializeField, Min(0f)] private float lossOfControlImpulse = 2.5f;
+        [SerializeField, Min(0f)] private float collisionLossOfControlImpulse = 180f;
         [SerializeField, Min(0f)] private float minimumUncontrolledDuration = 0.6f;
         [SerializeField, Min(0f)] private float uncontrolledAngularDamping = 2f;
         [SerializeField, Min(0f)] private float recoveryAngularSpeed = 1.5f;
@@ -84,7 +85,7 @@ namespace BadEngineering.Player
 
             if (headPivot == null && playerCamera != null)
             {
-                headPivot = playerCamera.transform.parent;
+                headPivot = playerCamera.transform;
             }
 
             yaw = transform.eulerAngles.y;
@@ -185,7 +186,7 @@ namespace BadEngineering.Player
             }
 
             Vector2 lookDelta = mouse.delta.ReadValue() * mouseSensitivity;
-            if (physicalState == PhysicalState.Normal)
+            if (physicalState == PhysicalState.Normal && (stationUser == null || !stationUser.IsUsingStation))
             {
                 yaw += lookDelta.x;
             }
@@ -268,8 +269,22 @@ namespace BadEngineering.Player
 
         public void ApplyRecoil(Vector3 impulse, Vector3 forcePosition)
         {
+            ApplyImpulse(impulse, forcePosition);
+        }
+
+        public void ApplyImpulse(Vector3 impulse, Vector3 forcePosition)
+        {
             body.AddForceAtPosition(impulse, forcePosition, ForceMode.Impulse);
             if (impulse.magnitude >= lossOfControlImpulse)
+            {
+                EnterUncontrolledState();
+            }
+        }
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (physicalState == PhysicalState.Normal &&
+                collision.impulse.magnitude >= collisionLossOfControlImpulse)
             {
                 EnterUncontrolledState();
             }

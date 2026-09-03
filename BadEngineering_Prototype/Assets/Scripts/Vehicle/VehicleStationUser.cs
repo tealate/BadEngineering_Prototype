@@ -31,10 +31,10 @@ namespace BadEngineering.Vehicle
             CurrentStation = station;
             if (body != null)
             {
-                body.isKinematic = true;
-                body.detectCollisions = false;
                 body.linearVelocity = Vector3.zero;
                 body.angularVelocity = Vector3.zero;
+                body.isKinematic = true;
+                body.detectCollisions = false;
             }
             if (playerCollider != null)
             {
@@ -55,6 +55,10 @@ namespace BadEngineering.Vehicle
         {
             if (CurrentStation == station)
             {
+                if (station.StationType == VehicleStationType.Driver)
+                {
+                    station.Vehicle?.SetDriveInput(Vector2.zero);
+                }
                 CurrentStation = null;
                 transform.SetParent(originalParent, true);
                 transform.SetPositionAndRotation(station.ExitPosition.position, station.ExitPosition.rotation);

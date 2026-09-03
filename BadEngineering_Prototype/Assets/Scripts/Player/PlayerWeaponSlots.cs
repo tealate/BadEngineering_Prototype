@@ -51,13 +51,13 @@ namespace BadEngineering.Player
 
             slots[emptySlot] = weapon;
             weapon.SetOwner(this);
+            weapon.HoldByOwner();
             if (equippedSlot < 0)
             {
                 SelectSlot(emptySlot);
             }
             else
             {
-                weapon.HoldByOwner();
                 weapon.SetSelected(emptySlot == equippedSlot);
             }
             SlotsChanged?.Invoke();
