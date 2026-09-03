@@ -77,6 +77,14 @@ namespace BadEngineering.Editor
             Assert(starter.State == WeaponState.Held && starter.Host?.Body == player.GetComponent<Rigidbody>(),
                 "Recovered weapon has invalid state/host.");
 
+            starter.Drop(player.transform.position + player.transform.forward, Vector3.zero);
+            Assert(starter.State == WeaponState.Dropped && starter.Owner == null && starter.Host == null,
+                "Dropped weapon retained owner or host.");
+            Assert(starter.PickUp(slots) && starter.State == WeaponState.Held,
+                "Dropped weapon could not be picked up again.");
+
+            ValidateSecondOwnerOnSameVehicle(vehicleHost, vehicle.Body.mass);
+
             VehicleInteractionPoint driver = System.Array.Find(
                 stations,
                 station => station.StationType == VehicleStationType.Driver);
@@ -84,9 +92,41 @@ namespace BadEngineering.Editor
             Assert(stationUser.IsDriving, "Driver state was not reported.");
             Assert(stationUser.TryLeaveStation() && !stationUser.IsUsingStation, "Player could not exit Driver seat.");
 
+            VehicleInteractionPoint crew = System.Array.Find(
+                stations,
+                station => station.StationType == VehicleStationType.Crew);
+            Assert(crew != null && stationUser.TryEnterStation(crew), "Player could not enter Crew seat.");
+            Assert(stationUser.IsCrew && !stationUser.IsDriving, "Crew state was not reported correctly.");
+            Assert(stationUser.TryLeaveStation(), "Player could not exit Crew seat.");
+
             player.ApplyImpulse(Vector3.back * 10f, player.transform.position);
             Assert(player.CurrentPhysicalState == FirstPersonRigidbodyController.PhysicalState.Uncontrolled,
                 "Large Player impulse did not enter Uncontrolled state.");
+        }
+
+        private static void ValidateSecondOwnerOnSameVehicle(WeaponHost vehicleHost, float initialMass)
+        {
+            GameObject secondPlayer = new GameObject("Smoke Test Player B");
+            secondPlayer.AddComponent<Rigidbody>();
+            secondPlayer.AddComponent<WeaponHost>();
+            PlayerWeaponSlots secondSlots = secondPlayer.AddComponent<PlayerWeaponSlots>();
+
+            GameObject weaponObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            weaponObject.name = "Player B Weapon";
+            Weapon secondWeapon = weaponObject.AddComponent<TestProjectileWeapon>();
+            Assert(secondSlots.AddOwnedWeapon(secondWeapon), "Player B could not own a weapon.");
+            Assert(secondWeapon.AttachTo(
+                    vehicleHost,
+                    vehicleHost.transform.position - vehicleHost.transform.right,
+                    vehicleHost.transform.rotation,
+                    WeaponState.Attached),
+                "Player B weapon could not attach to shared Vehicle.");
+            Assert(secondWeapon.Owner == secondSlots, "Player B ownership changed on shared Vehicle.");
+            Assert(vehicleHost.Body.mass > initialMass, "Second owner's weapon did not contribute to shared Vehicle mass.");
+
+            Object.DestroyImmediate(secondPlayer);
+            Object.DestroyImmediate(weaponObject);
+            vehicleHost.RefreshMassProperties();
         }
 
         private static T RequireOne<T>() where T : Object

@@ -34,5 +34,7 @@ Rebuild the scene after changing the builder with **Bad Engineering > Build Prot
 - Recoil always targets the current Host body with `AddForceAtPosition`.
 - Vehicle host mass and center of mass are recalculated from attached weapon mass/positions.
 - `VehicleStationUser` distinguishes Driver and Crew. Driver routes movement to the vehicle and cannot use weapons; Crew retains normal weapon input.
+- `PlayerPhysicsController` owns grounding and Normal/Uncontrolled/Recovering transitions;
+  the first-person controller only moves when `CanMove` is true.
 
 Multiplayer authority is intentionally not implemented yet: Netcode for GameObjects is not currently a project dependency. The Owner/Host split and input-routing boundaries are designed so authoritative commands can be added without replacing the local gameplay model.

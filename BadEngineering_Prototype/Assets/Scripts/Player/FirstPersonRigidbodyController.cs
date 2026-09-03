@@ -5,7 +5,7 @@ using BadEngineering.Vehicle;
 
 namespace BadEngineering.Player
 {
-    [RequireComponent(typeof(Rigidbody), typeof(CapsuleCollider))]
+    [RequireComponent(typeof(Rigidbody), typeof(CapsuleCollider), typeof(PlayerPhysicsController))]
     public sealed class FirstPersonRigidbodyController : MonoBehaviour
     {
         public enum PhysicalState
@@ -19,6 +19,7 @@ namespace BadEngineering.Player
         [SerializeField] private Camera playerCamera;
         [SerializeField] private Transform headPivot;
         [SerializeField] private PlayerWeaponSlots weaponSlots;
+        [SerializeField] private PlayerPhysicsController playerPhysics;
 
         [Header("Movement")]
         [SerializeField, Min(0f)] private float moveSpeed = 4.5f;
@@ -31,47 +32,25 @@ namespace BadEngineering.Player
         [SerializeField, Min(0f)] private float mouseSensitivity = 0.08f;
         [SerializeField, Range(1f, 89f)] private float verticalLookLimit = 85f;
 
-        [Header("Grounding")]
-        [SerializeField, Min(0.01f)] private float groundCheckDistance = 0.18f;
-        [SerializeField, Range(0f, 1f)] private float minimumGroundNormal = 0.6f;
-
-        [Header("Recoil Loss of Control")]
-        [SerializeField, Min(0f)] private float lossOfControlImpulse = 2.5f;
-        [SerializeField, Min(0f)] private float collisionLossOfControlImpulse = 180f;
-        [SerializeField, Min(0f)] private float minimumUncontrolledDuration = 0.6f;
-        [SerializeField, Min(0f)] private float uncontrolledAngularDamping = 2f;
-        [SerializeField, Min(0f)] private float recoveryAngularSpeed = 1.5f;
-        [SerializeField, Min(0f)] private float recoveryLinearSpeed = 0.5f;
-        [SerializeField, Min(0f)] private float recoveryTorque = 20f;
-        [SerializeField, Min(0f)] private float recoveryAngularDamping = 5f;
-        [SerializeField, Range(0f, 10f)] private float uprightAngleTolerance = 0.5f;
-        [SerializeField, Min(0f)] private float recoveryCompletionAngularSpeed = 0.15f;
-        [SerializeField, Min(0f)] private float recoveryStableDuration = 0.25f;
-
-        private readonly RaycastHit[] groundHits = new RaycastHit[8];
-
         private Rigidbody body;
-        private CapsuleCollider capsule;
         private Vector2 moveInput;
         private float yaw;
         private float pitch;
         private float freeLookYaw;
         private bool jumpQueued;
-        private bool isGrounded;
-        private PhysicalState physicalState;
-        private float uncontrolledUntil;
-        private float stableSince = -1f;
-        private float normalAngularDamping;
         private VehicleStationUser stationUser;
 
-        public bool IsUncontrolled => physicalState == PhysicalState.Uncontrolled;
-        public PhysicalState CurrentPhysicalState => physicalState;
+        public bool IsUncontrolled => CurrentPhysicalState == PhysicalState.Uncontrolled;
+        public PhysicalState CurrentPhysicalState => playerPhysics != null ? playerPhysics.State : PhysicalState.Normal;
 
         private void Awake()
         {
             body = GetComponent<Rigidbody>();
-            capsule = GetComponent<CapsuleCollider>();
             stationUser = GetComponent<VehicleStationUser>();
+            if (playerPhysics == null)
+            {
+                playerPhysics = GetComponent<PlayerPhysicsController>();
+            }
 
             if (playerCamera == null)
             {
@@ -89,9 +68,24 @@ namespace BadEngineering.Player
             }
 
             yaw = transform.eulerAngles.y;
-            normalAngularDamping = body.angularDamping;
-            body.constraints |= RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            playerPhysics.StateChanged += OnPhysicalStateChanged;
             LockCursor();
+        }
+
+        private void OnDestroy()
+        {
+            if (playerPhysics != null)
+            {
+                playerPhysics.StateChanged -= OnPhysicalStateChanged;
+            }
+        }
+
+        private void OnPhysicalStateChanged(PhysicalState state)
+        {
+            if (state == PhysicalState.Normal)
+            {
+                yaw = transform.eulerAngles.y;
+            }
         }
 
         private void Update()
@@ -112,17 +106,8 @@ namespace BadEngineering.Player
                 return;
             }
 
-            isGrounded = CheckGrounded();
-
-            if (physicalState == PhysicalState.Uncontrolled)
+            if (!playerPhysics.CanMove)
             {
-                TryStartRecovering();
-                return;
-            }
-
-            if (physicalState == PhysicalState.Recovering)
-            {
-                ApplyRecoveryTorque();
                 return;
             }
 
@@ -141,7 +126,7 @@ namespace BadEngineering.Player
 
         private void ReadInput()
         {
-            if (physicalState != PhysicalState.Normal)
+            if (!playerPhysics.CanMove)
             {
                 moveInput = Vector2.zero;
                 jumpQueued = false;
@@ -186,7 +171,7 @@ namespace BadEngineering.Player
             }
 
             Vector2 lookDelta = mouse.delta.ReadValue() * mouseSensitivity;
-            if (physicalState == PhysicalState.Normal && (stationUser == null || !stationUser.IsUsingStation))
+            if (playerPhysics.CanMove && (stationUser == null || !stationUser.IsUsingStation))
             {
                 yaw += lookDelta.x;
             }
@@ -274,83 +259,9 @@ namespace BadEngineering.Player
 
         public void ApplyImpulse(Vector3 impulse, Vector3 forcePosition)
         {
-            body.AddForceAtPosition(impulse, forcePosition, ForceMode.Impulse);
-            if (impulse.magnitude >= lossOfControlImpulse)
-            {
-                EnterUncontrolledState();
-            }
-        }
-
-        private void OnCollisionEnter(Collision collision)
-        {
-            if (physicalState == PhysicalState.Normal &&
-                collision.impulse.magnitude >= collisionLossOfControlImpulse)
-            {
-                EnterUncontrolledState();
-            }
-        }
-
-        private void EnterUncontrolledState()
-        {
-            uncontrolledUntil = Time.time + minimumUncontrolledDuration;
-            physicalState = PhysicalState.Uncontrolled;
-            stableSince = -1f;
             jumpQueued = false;
             moveInput = Vector2.zero;
-            body.angularDamping = Mathf.Max(normalAngularDamping, uncontrolledAngularDamping);
-            body.constraints &= ~(RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ);
-        }
-
-        private void TryStartRecovering()
-        {
-            if (Time.time < uncontrolledUntil || !isGrounded ||
-                body.linearVelocity.magnitude > recoveryLinearSpeed ||
-                body.angularVelocity.magnitude > recoveryAngularSpeed)
-            {
-                return;
-            }
-
-            physicalState = PhysicalState.Recovering;
-            body.angularDamping = Mathf.Max(normalAngularDamping, recoveryAngularDamping);
-            stableSince = -1f;
-        }
-
-        private void ApplyRecoveryTorque()
-        {
-            Vector3 uprightAxis = Vector3.Cross(transform.up, Vector3.up);
-            if (uprightAxis.sqrMagnitude < 0.0001f && Vector3.Dot(transform.up, Vector3.up) < 0f)
-            {
-                uprightAxis = transform.right;
-            }
-
-            body.AddTorque(uprightAxis * recoveryTorque, ForceMode.Acceleration);
-
-            float uprightError = Vector3.Angle(transform.up, Vector3.up);
-            if (uprightError <= uprightAngleTolerance &&
-                body.angularVelocity.magnitude <= recoveryCompletionAngularSpeed)
-            {
-                if (stableSince < 0f)
-                {
-                    stableSince = Time.time;
-                }
-                else if (Time.time - stableSince >= recoveryStableDuration)
-                {
-                    EnterNormalState();
-                }
-            }
-            else
-            {
-                stableSince = -1f;
-            }
-        }
-
-        private void EnterNormalState()
-        {
-            physicalState = PhysicalState.Normal;
-            body.angularDamping = normalAngularDamping;
-            body.constraints |= RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-            yaw = transform.eulerAngles.y;
-            stableSince = -1f;
+            playerPhysics.ApplyImpulse(impulse, forcePosition);
         }
 
         private void ApplyMovement()
@@ -360,7 +271,7 @@ namespace BadEngineering.Player
             Vector3 velocityChange = desiredVelocity - currentHorizontalVelocity;
 
             float acceleration = moveInput.sqrMagnitude > 0f ? groundAcceleration : groundDeceleration;
-            if (!isGrounded)
+            if (!playerPhysics.IsGrounded)
             {
                 acceleration *= airControl;
             }
@@ -379,7 +290,7 @@ namespace BadEngineering.Player
             }
 
             jumpQueued = false;
-            if (!isGrounded)
+            if (!playerPhysics.IsGrounded)
             {
                 return;
             }
@@ -388,37 +299,7 @@ namespace BadEngineering.Player
             Vector3 velocity = body.linearVelocity;
             velocity.y = Mathf.Max(velocity.y, 0f) + jumpSpeed;
             body.linearVelocity = velocity;
-            isGrounded = false;
-        }
-
-        private bool CheckGrounded()
-        {
-            Vector3 center = transform.TransformPoint(capsule.center);
-            float scaledHalfHeight = capsule.height * Mathf.Abs(transform.lossyScale.y) * 0.5f;
-            float scaledRadius = capsule.radius * Mathf.Max(
-                Mathf.Abs(transform.lossyScale.x),
-                Mathf.Abs(transform.lossyScale.z));
-            float rayDistance = Mathf.Max(0f, scaledHalfHeight - scaledRadius) + groundCheckDistance;
-
-            int hitCount = Physics.SphereCastNonAlloc(
-                center,
-                scaledRadius * 0.9f,
-                Vector3.down,
-                groundHits,
-                rayDistance,
-                Physics.AllLayers,
-                QueryTriggerInteraction.Ignore);
-
-            for (int i = 0; i < hitCount; i++)
-            {
-                RaycastHit hit = groundHits[i];
-                if (hit.collider != capsule && Vector3.Dot(hit.normal, Vector3.up) >= minimumGroundNormal)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            playerPhysics.MarkAirborne();
         }
 
         private static void LockCursor()

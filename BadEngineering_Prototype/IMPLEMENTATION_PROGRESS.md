@@ -42,9 +42,12 @@ This file is the compact resume point for `BadEngineering_SpecificationDiagram.m
 - Added command-line Play Mode smoke test covering initialization, attach/recover,
   host recoil projectile spawn, vehicle mass, Driver enter/exit and Player knockdown.
 - First Play Mode smoke run passed; it exposed kinematic velocity warnings, now fixed.
+- Extracted grounding, impact detection and recovery into `PlayerPhysicsController`.
+- Extended smoke coverage for drop/pickup, Crew enter/exit and two independent
+  weapon owners attaching to the same Vehicle Rigidbody.
+- Scene build compiled without warnings and the extended Play Mode smoke test passed.
 
 ## Next
 
-- Re-run warning-free scene build and Play Mode smoke test.
-- Commit the physics/PvE/scene validation increment.
-- Review specification coverage and implement remaining high-value gaps.
+- Commit Player physics separation and expanded multi-owner validation.
+- Review lifecycle/interaction edge cases and final specification coverage.
