@@ -12,7 +12,7 @@ namespace BadEngineering.Weapons
 
         public override void PrimaryPressed()
         {
-            if (!IsHeld || muzzle == null)
+            if (!CanFire || muzzle == null)
             {
                 return;
             }
@@ -28,14 +28,16 @@ namespace BadEngineering.Weapons
             projectileBody.linearVelocity = muzzle.forward * projectileSpeed;
 
             Vector3 recoil = -muzzle.forward * recoilImpulse;
-            var controller = OwnerTransform != null ? OwnerTransform.GetComponent<FirstPersonRigidbodyController>() : null;
+            var controller = Host?.HostBehaviour != null
+                ? Host.HostBehaviour.GetComponent<FirstPersonRigidbodyController>()
+                : null;
             if (controller != null)
             {
                 controller.ApplyRecoil(recoil, muzzle.position);
             }
             else
             {
-                OwnerBody?.AddForceAtPosition(recoil, muzzle.position, ForceMode.Impulse);
+                HostBody?.AddForceAtPosition(recoil, muzzle.position, ForceMode.Impulse);
             }
             Destroy(projectile, projectileLifetime);
         }

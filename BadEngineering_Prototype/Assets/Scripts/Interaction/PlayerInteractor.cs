@@ -49,6 +49,12 @@ namespace BadEngineering.Interaction
                 return false;
             }
 
+            Vehicle.VehicleWeaponSurface surface = hit.collider.GetComponentInParent<Vehicle.VehicleWeaponSurface>();
+            if (surface != null && surface.CanInteract(gameObject))
+            {
+                return surface.TryAttach(gameObject, hit.point, hit.normal);
+            }
+
             IInteractable interactable = FindInteractable(hit.collider.transform);
             return interactable != null && interactable.CanInteract(gameObject) && interactable.TryInteract(gameObject);
         }

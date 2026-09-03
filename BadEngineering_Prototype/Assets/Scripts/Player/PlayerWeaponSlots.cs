@@ -1,20 +1,22 @@
+using System;
 using BadEngineering.Weapons;
 using UnityEngine;
 
 namespace BadEngineering.Player
 {
-    [RequireComponent(typeof(Rigidbody))]
+    [RequireComponent(typeof(Rigidbody), typeof(WeaponHost))]
     public sealed class PlayerWeaponSlots : MonoBehaviour
     {
         [SerializeField, Range(1, 3)] private int slotCount = 3;
+        [SerializeField, Min(0f)] private float dropDistance = 1.2f;
 
         private Weapon[] slots;
-        private Rigidbody ownerBody;
         private int equippedSlot = -1;
 
-        public Weapon EquippedWeapon => equippedSlot >= 0 ? slots[equippedSlot] : null;
+        public Weapon EquippedWeapon => equippedSlot >= 0 && equippedSlot < slots.Length ? slots[equippedSlot] : null;
         public int SlotCount => slots != null ? slots.Length : slotCount;
         public int EquippedSlotIndex => equippedSlot;
+        public event Action SlotsChanged;
 
         public Weapon GetWeapon(int slotIndex)
         {
@@ -23,57 +25,92 @@ namespace BadEngineering.Player
 
         private void Awake()
         {
-            ownerBody = GetComponent<Rigidbody>();
             slots = new Weapon[slotCount];
 
             Weapon[] discoveredWeapons = GetComponentsInChildren<Weapon>(true);
-            for (int i = 0; i < discoveredWeapons.Length && i < slots.Length; i++)
+            foreach (Weapon weapon in discoveredWeapons)
             {
-                slots[i] = discoveredWeapons[i];
-                slots[i].SetOwner(transform, ownerBody);
-                slots[i].SetHeld(false);
+                AddOwnedWeapon(weapon);
             }
 
-            EquipSlot(0);
+            SelectSlot(0);
         }
 
-        public void EquipSlot(int slotIndex)
+        public bool AddOwnedWeapon(Weapon weapon)
         {
-            if (slotIndex < 0 || slotIndex >= slots.Length || equippedSlot == slotIndex)
+            if (weapon == null || Array.IndexOf(slots, weapon) >= 0)
+            {
+                return false;
+            }
+
+            int emptySlot = Array.FindIndex(slots, item => item == null);
+            if (emptySlot < 0)
+            {
+                return false;
+            }
+
+            slots[emptySlot] = weapon;
+            weapon.SetOwner(this);
+            if (equippedSlot < 0)
+            {
+                SelectSlot(emptySlot);
+            }
+            else
+            {
+                weapon.HoldByOwner();
+                weapon.SetSelected(emptySlot == equippedSlot);
+            }
+            SlotsChanged?.Invoke();
+            return true;
+        }
+
+        public void RemoveOwnedWeapon(Weapon weapon)
+        {
+            int index = Array.IndexOf(slots, weapon);
+            if (index < 0)
             {
                 return;
             }
 
-            if (EquippedWeapon != null)
+            slots[index] = null;
+            if (equippedSlot == index)
             {
-                EquippedWeapon.SetHeld(false);
+                equippedSlot = -1;
+            }
+            SlotsChanged?.Invoke();
+        }
+
+        public void SelectSlot(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= slots.Length)
+            {
+                return;
             }
 
-            equippedSlot = slotIndex;
-            if (EquippedWeapon != null)
+            EquippedWeapon?.SetSelected(false);
+            equippedSlot = slots[slotIndex] != null ? slotIndex : -1;
+            EquippedWeapon?.SetSelected(true);
+            SlotsChanged?.Invoke();
+        }
+
+        public void EquipSlot(int slotIndex) => SelectSlot(slotIndex);
+
+        public void DropSelectedWeapon()
+        {
+            Weapon weapon = EquippedWeapon;
+            if (weapon == null)
             {
-                EquippedWeapon.SetHeld(true);
+                return;
             }
+
+            Rigidbody body = GetComponent<Rigidbody>();
+            Vector3 position = transform.position + transform.forward * dropDistance + Vector3.up * 0.5f;
+            weapon.Drop(position, body.linearVelocity);
         }
 
-        public void PrimaryPressed()
-        {
-            EquippedWeapon?.PrimaryPressed();
-        }
-
-        public void PrimaryReleased()
-        {
-            EquippedWeapon?.PrimaryReleased();
-        }
-
-        public void SecondaryPressed()
-        {
-            EquippedWeapon?.SecondaryPressed();
-        }
-
-        public void SecondaryReleased()
-        {
-            EquippedWeapon?.SecondaryReleased();
-        }
+        public void PrimaryPressed() => EquippedWeapon?.PrimaryPressed();
+        public void PrimaryReleased() => EquippedWeapon?.PrimaryReleased();
+        public void SecondaryPressed() => EquippedWeapon?.SecondaryPressed();
+        public void SecondaryReleased() => EquippedWeapon?.SecondaryReleased();
     }
 }

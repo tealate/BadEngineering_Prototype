@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
+using BadEngineering.Vehicle;
 
 namespace BadEngineering.Player
 {
@@ -60,6 +61,7 @@ namespace BadEngineering.Player
         private float uncontrolledUntil;
         private float stableSince = -1f;
         private float normalAngularDamping;
+        private VehicleStationUser stationUser;
 
         public bool IsUncontrolled => physicalState == PhysicalState.Uncontrolled;
         public PhysicalState CurrentPhysicalState => physicalState;
@@ -68,6 +70,7 @@ namespace BadEngineering.Player
         {
             body = GetComponent<Rigidbody>();
             capsule = GetComponent<CapsuleCollider>();
+            stationUser = GetComponent<VehicleStationUser>();
 
             if (playerCamera == null)
             {
@@ -99,6 +102,15 @@ namespace BadEngineering.Player
 
         private void FixedUpdate()
         {
+            if (stationUser != null && stationUser.IsUsingStation)
+            {
+                if (stationUser.IsDriving)
+                {
+                    stationUser.CurrentStation.Vehicle?.SetDriveInput(moveInput);
+                }
+                return;
+            }
+
             isGrounded = CheckGrounded();
 
             if (physicalState == PhysicalState.Uncontrolled)
@@ -147,6 +159,12 @@ namespace BadEngineering.Player
                 ReadAxis(keyboard.sKey, keyboard.wKey));
             moveInput = Vector2.ClampMagnitude(moveInput, 1f);
 
+            if (stationUser != null && stationUser.IsUsingStation)
+            {
+                jumpQueued = false;
+                return;
+            }
+
             if (keyboard.spaceKey.wasPressedThisFrame)
             {
                 jumpQueued = true;
@@ -186,6 +204,11 @@ namespace BadEngineering.Player
                 return;
             }
 
+            if (stationUser != null && stationUser.IsDriving)
+            {
+                return;
+            }
+
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null)
             {
@@ -200,6 +223,10 @@ namespace BadEngineering.Player
                 else if (keyboard.digit3Key.wasPressedThisFrame)
                 {
                     weaponSlots.EquipSlot(2);
+                }
+                if (keyboard.qKey.wasPressedThisFrame)
+                {
+                    weaponSlots.DropSelectedWeapon();
                 }
             }
 

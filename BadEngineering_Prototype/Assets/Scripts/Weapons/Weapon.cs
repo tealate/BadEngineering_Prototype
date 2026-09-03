@@ -1,47 +1,148 @@
+using BadEngineering.Interaction;
+using BadEngineering.Player;
 using UnityEngine;
 
 namespace BadEngineering.Weapons
 {
-    public abstract class Weapon : MonoBehaviour
+    public enum WeaponState
+    {
+        Held,
+        Attached,
+        Dropped
+    }
+
+    [DisallowMultipleComponent]
+    public abstract class Weapon : MonoBehaviour, IInteractable
     {
         [SerializeField] private string displayName = "Weapon";
+        [SerializeField, Min(0.01f)] private float weaponMass = 8f;
 
-        protected Transform OwnerTransform { get; private set; }
-        protected Rigidbody OwnerBody { get; private set; }
-        protected bool IsHeld { get; private set; }
+        private Rigidbody weaponBody;
+        private Collider[] weaponColliders;
+
+        public PlayerWeaponSlots Owner { get; private set; }
+        public IWeaponHost Host { get; private set; }
+        public WeaponState State { get; private set; } = WeaponState.Dropped;
         public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
+        public float WeaponMass => weaponMass;
+        protected Rigidbody HostBody => Host?.Body;
+        protected bool CanFire => Owner != null && State != WeaponState.Dropped;
 
-        public void SetOwner(Transform ownerTransform, Rigidbody ownerBody)
+        protected virtual void Awake()
         {
-            OwnerTransform = ownerTransform;
-            OwnerBody = ownerBody;
+            weaponBody = GetComponent<Rigidbody>();
+            weaponColliders = GetComponentsInChildren<Collider>(true);
         }
 
-        public void SetHeld(bool held)
+        public void SetOwner(PlayerWeaponSlots owner)
         {
-            IsHeld = held;
-            gameObject.SetActive(held);
-            OnHeldChanged(held);
+            Owner = owner;
         }
 
-        public virtual void PrimaryPressed()
+        public void SetSelected(bool selected)
         {
+            if (State == WeaponState.Held)
+            {
+                gameObject.SetActive(selected);
+            }
         }
 
-        public virtual void PrimaryReleased()
+        public bool AttachTo(IWeaponHost host, Vector3 worldPosition, Quaternion worldRotation, WeaponState state)
         {
+            if (host == null || state == WeaponState.Dropped)
+            {
+                return false;
+            }
+
+            Host = host;
+            State = state;
+            SetPhysicsEnabled(false);
+            transform.SetParent(host.WeaponAttachRoot, true);
+            transform.SetPositionAndRotation(worldPosition, worldRotation);
+            gameObject.SetActive(true);
+            OnStateChanged();
+            return true;
         }
 
-        public virtual void SecondaryPressed()
+        public bool HoldByOwner()
         {
+            IWeaponHost playerHost = Owner != null ? Owner.GetComponent<IWeaponHost>() : null;
+            if (playerHost == null)
+            {
+                return false;
+            }
+
+            bool attached = AttachTo(
+                playerHost,
+                playerHost.WeaponAttachRoot.position,
+                playerHost.WeaponAttachRoot.rotation,
+                WeaponState.Held);
+            SetSelected(Owner.EquippedWeapon == this);
+            return attached;
         }
 
-        public virtual void SecondaryReleased()
+        public void Drop(Vector3 worldPosition, Vector3 inheritedVelocity)
         {
+            PlayerWeaponSlots previousOwner = Owner;
+            Owner = null;
+            Host = null;
+            State = WeaponState.Dropped;
+            previousOwner?.RemoveOwnedWeapon(this);
+
+            transform.SetParent(null, true);
+            transform.position = worldPosition;
+            gameObject.SetActive(true);
+            SetPhysicsEnabled(true);
+            if (weaponBody != null)
+            {
+                weaponBody.linearVelocity = inheritedVelocity;
+            }
+            OnStateChanged();
         }
 
-        protected virtual void OnHeldChanged(bool held)
+        public bool PickUp(PlayerWeaponSlots newOwner)
         {
+            return State == WeaponState.Dropped && newOwner != null && newOwner.AddOwnedWeapon(this);
+        }
+
+        public bool CanInteract(GameObject interactor) =>
+            State == WeaponState.Dropped &&
+            interactor != null &&
+            interactor.GetComponent<PlayerWeaponSlots>() != null;
+
+        public bool TryInteract(GameObject interactor) =>
+            interactor != null && PickUp(interactor.GetComponent<PlayerWeaponSlots>());
+
+        public virtual void PrimaryPressed() { }
+        public virtual void PrimaryReleased() { }
+        public virtual void SecondaryPressed() { }
+        public virtual void SecondaryReleased() { }
+        protected virtual void OnStateChanged() { }
+
+        private void SetPhysicsEnabled(bool enabled)
+        {
+            if (weaponBody == null && enabled)
+            {
+                weaponBody = gameObject.AddComponent<Rigidbody>();
+                weaponBody.mass = weaponMass;
+                weaponBody.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            }
+
+            if (weaponBody != null)
+            {
+                weaponBody.isKinematic = !enabled;
+                weaponBody.detectCollisions = enabled;
+            }
+
+            if (weaponColliders == null || weaponColliders.Length == 0)
+            {
+                weaponColliders = GetComponentsInChildren<Collider>(true);
+            }
+
+            foreach (Collider weaponCollider in weaponColliders)
+            {
+                weaponCollider.enabled = enabled;
+            }
         }
     }
 }

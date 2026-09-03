@@ -7,7 +7,7 @@ namespace BadEngineering.Vehicle
     public enum VehicleStationType
     {
         Driver,
-        Gunner
+        Crew
     }
 
     [DisallowMultipleComponent]
@@ -15,11 +15,14 @@ namespace BadEngineering.Vehicle
     {
         [SerializeField] private VehicleStationType stationType;
         [SerializeField] private Transform operatingPosition;
+        [SerializeField] private Transform exitPosition;
 
         private GameObject currentUser;
 
         public VehicleStationType StationType => stationType;
         public Transform OperatingPosition => operatingPosition != null ? operatingPosition : transform;
+        public Transform ExitPosition => exitPosition != null ? exitPosition : transform;
+        public VehiclePhysicsController Vehicle => GetComponentInParent<VehiclePhysicsController>();
         public GameObject CurrentUser => currentUser;
         public bool IsOccupied => currentUser != null;
 
