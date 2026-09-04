@@ -103,7 +103,16 @@ namespace BadEngineering.Player
 
             if (physicalState == PhysicalState.Uncontrolled)
             {
+<<<<<<< Updated upstream
                 TryStartRecovering();
+=======
+                if (stationUser.IsDriving)
+                {
+                    float brake = Keyboard.current != null && Keyboard.current.spaceKey.isPressed ? 1f : 0f;
+                    stationUser.CurrentStation.Vehicle?.SetMovementInput(
+                        new VehicleInput(moveInput.y, moveInput.x, brake));
+                }
+>>>>>>> Stashed changes
                 return;
             }
 

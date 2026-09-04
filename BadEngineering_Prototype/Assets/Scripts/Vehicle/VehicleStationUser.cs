@@ -29,6 +29,13 @@ namespace BadEngineering.Vehicle
         {
             if (CurrentStation == station)
             {
+<<<<<<< Updated upstream
+=======
+                if (station.StationType == VehicleStationType.Driver)
+                {
+                    station.Vehicle?.SetMovementInput(VehicleInput.None);
+                }
+>>>>>>> Stashed changes
                 CurrentStation = null;
             }
         }
