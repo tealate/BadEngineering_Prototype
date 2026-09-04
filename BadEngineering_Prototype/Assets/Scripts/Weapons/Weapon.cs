@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using BadEngineering.Interaction;
 using BadEngineering.Player;
 using UnityEngine;
@@ -19,7 +20,8 @@ namespace BadEngineering.Weapons
 
         private Rigidbody weaponBody;
         private Collider[] weaponColliders;
-        private bool[] originalTriggerStates;
+        private readonly Dictionary<Collider, bool> originalEnabledStates = new Dictionary<Collider, bool>();
+        private readonly Dictionary<Collider, bool> originalTriggerStates = new Dictionary<Collider, bool>();
 
         public PlayerWeaponSlots Owner { get; private set; }
         public IWeaponHost Host { get; private set; }
@@ -31,13 +33,7 @@ namespace BadEngineering.Weapons
 
         protected virtual void Awake()
         {
-            weaponBody = GetComponent<Rigidbody>();
-            weaponColliders = GetComponentsInChildren<Collider>(true);
-            originalTriggerStates = new bool[weaponColliders.Length];
-            for (int i = 0; i < weaponColliders.Length; i++)
-            {
-                originalTriggerStates[i] = weaponColliders[i].isTrigger;
-            }
+            CachePhysicalComponents();
         }
 
         public void SetOwner(PlayerWeaponSlots owner)
@@ -55,21 +51,28 @@ namespace BadEngineering.Weapons
 
         public bool AttachTo(IWeaponHost host, Vector3 worldPosition, Quaternion worldRotation, WeaponState state)
         {
-            if (host == null || state == WeaponState.Dropped)
+            if (host == null || host.WeaponAttachRoot == null || Owner == null ||
+                state != WeaponState.Held && state != WeaponState.Attached)
+            {
+                return false;
+            }
+
+            IWeaponHost ownerHost = Owner.GetComponent<IWeaponHost>();
+            if (state == WeaponState.Held && !ReferenceEquals(host, ownerHost))
             {
                 return false;
             }
 
             WeaponHost previousHost = Host?.HostBehaviour as WeaponHost;
-            Host = host;
-            State = state;
             SetPhysicalMode(state);
             transform.SetParent(host.WeaponAttachRoot, true);
             transform.SetPositionAndRotation(worldPosition, worldRotation);
+            Host = host;
+            State = state;
             gameObject.SetActive(true);
-            OnStateChanged();
             previousHost?.RefreshMassProperties();
             (Host.HostBehaviour as WeaponHost)?.RefreshMassProperties();
+            OnStateChanged();
             return true;
         }
 
@@ -153,33 +156,54 @@ namespace BadEngineering.Weapons
         private void SetPhysicalMode(WeaponState state)
         {
             bool dropped = state == WeaponState.Dropped;
+            CachePhysicalComponents();
             if (weaponBody == null && dropped)
             {
                 weaponBody = gameObject.AddComponent<Rigidbody>();
-                weaponBody.mass = weaponMass;
-                weaponBody.collisionDetectionMode = CollisionDetectionMode.Continuous;
             }
 
             if (weaponBody != null)
             {
+                weaponBody.mass = weaponMass;
+                if (!dropped)
+                {
+                    weaponBody.collisionDetectionMode = CollisionDetectionMode.Discrete;
+                }
                 weaponBody.isKinematic = !dropped;
                 weaponBody.detectCollisions = dropped;
-            }
-
-            if (weaponColliders == null || weaponColliders.Length == 0)
-            {
-                weaponColliders = GetComponentsInChildren<Collider>(true);
-                originalTriggerStates = new bool[weaponColliders.Length];
-                for (int i = 0; i < weaponColliders.Length; i++)
+                if (dropped)
                 {
-                    originalTriggerStates[i] = weaponColliders[i].isTrigger;
+                    weaponBody.collisionDetectionMode = CollisionDetectionMode.Continuous;
                 }
             }
 
             for (int i = 0; i < weaponColliders.Length; i++)
             {
-                weaponColliders[i].enabled = state != WeaponState.Held;
-                weaponColliders[i].isTrigger = state == WeaponState.Attached || originalTriggerStates[i];
+                Collider weaponCollider = weaponColliders[i];
+                if (weaponCollider == null)
+                {
+                    continue;
+                }
+
+                weaponCollider.enabled = state == WeaponState.Held
+                    ? false
+                    : originalEnabledStates[weaponCollider];
+                weaponCollider.isTrigger = state == WeaponState.Attached || originalTriggerStates[weaponCollider];
+            }
+        }
+
+        private void CachePhysicalComponents()
+        {
+            weaponBody = GetComponent<Rigidbody>();
+            weaponColliders = GetComponentsInChildren<Collider>(true);
+            for (int i = 0; i < weaponColliders.Length; i++)
+            {
+                Collider weaponCollider = weaponColliders[i];
+                if (!originalEnabledStates.ContainsKey(weaponCollider))
+                {
+                    originalEnabledStates.Add(weaponCollider, weaponCollider.enabled);
+                    originalTriggerStates.Add(weaponCollider, weaponCollider.isTrigger);
+                }
             }
         }
     }

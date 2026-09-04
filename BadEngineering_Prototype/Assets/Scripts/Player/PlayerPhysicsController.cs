@@ -30,20 +30,22 @@ namespace BadEngineering.Player
         private Rigidbody body;
         private CapsuleCollider capsule;
         private float normalAngularDamping;
+        private RigidbodyConstraints normalConstraints;
         private float uncontrolledUntil;
         private float stableSince = -1f;
 
-        public FirstPersonRigidbodyController.PhysicalState State { get; private set; }
+        public PlayerPhysicalState State { get; private set; } = PlayerPhysicalState.Normal;
         public bool IsGrounded { get; private set; }
-        public bool CanMove => State == FirstPersonRigidbodyController.PhysicalState.Normal;
-        public event Action<FirstPersonRigidbodyController.PhysicalState> StateChanged;
+        public bool CanMove => State == PlayerPhysicalState.Normal;
+        public event Action<PlayerPhysicalState> StateChanged;
 
         private void Awake()
         {
             body = GetComponent<Rigidbody>();
             capsule = GetComponent<CapsuleCollider>();
             normalAngularDamping = body.angularDamping;
-            body.constraints |= RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            normalConstraints = body.constraints | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            body.constraints = normalConstraints;
         }
 
         private void FixedUpdate()
@@ -54,11 +56,11 @@ namespace BadEngineering.Player
             }
 
             IsGrounded = CheckGrounded();
-            if (State == FirstPersonRigidbodyController.PhysicalState.Uncontrolled)
+            if (State == PlayerPhysicalState.Uncontrolled)
             {
                 TryStartRecovering();
             }
-            else if (State == FirstPersonRigidbodyController.PhysicalState.Recovering)
+            else if (State == PlayerPhysicalState.Recovering)
             {
                 ApplyRecoveryTorque();
             }
@@ -85,16 +87,15 @@ namespace BadEngineering.Player
         public void EnterUncontrolled()
         {
             uncontrolledUntil = Time.time + minimumUncontrolledDuration;
-            SetState(FirstPersonRigidbodyController.PhysicalState.Uncontrolled);
+            SetState(PlayerPhysicalState.Uncontrolled);
             stableSince = -1f;
             body.angularDamping = Mathf.Max(normalAngularDamping, uncontrolledAngularDamping);
-            body.constraints &= ~(RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ);
+            body.constraints = normalConstraints & ~(RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ);
         }
 
         private void OnCollisionEnter(Collision collision)
         {
-            if (State == FirstPersonRigidbodyController.PhysicalState.Normal &&
-                collision.impulse.magnitude >= collisionLossOfControlImpulse)
+            if (collision.impulse.magnitude >= collisionLossOfControlImpulse)
             {
                 EnterUncontrolled();
             }
@@ -109,7 +110,7 @@ namespace BadEngineering.Player
                 return;
             }
 
-            SetState(FirstPersonRigidbodyController.PhysicalState.Recovering);
+            SetState(PlayerPhysicalState.Recovering);
             body.angularDamping = Mathf.Max(normalAngularDamping, recoveryAngularDamping);
             stableSince = -1f;
         }
@@ -144,13 +145,13 @@ namespace BadEngineering.Player
 
         private void FinishRecovery()
         {
-            SetState(FirstPersonRigidbodyController.PhysicalState.Normal);
+            SetState(PlayerPhysicalState.Normal);
             body.angularDamping = normalAngularDamping;
-            body.constraints |= RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            body.constraints = normalConstraints;
             stableSince = -1f;
         }
 
-        private void SetState(FirstPersonRigidbodyController.PhysicalState nextState)
+        private void SetState(PlayerPhysicalState nextState)
         {
             if (State == nextState)
             {

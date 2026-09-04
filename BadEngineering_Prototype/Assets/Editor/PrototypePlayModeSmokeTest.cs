@@ -100,7 +100,7 @@ namespace BadEngineering.Editor
             Assert(stationUser.TryLeaveStation(), "Player could not exit Crew seat.");
 
             player.ApplyImpulse(Vector3.back * 10f, player.transform.position);
-            Assert(player.CurrentPhysicalState == FirstPersonRigidbodyController.PhysicalState.Uncontrolled,
+            Assert(player.CurrentPhysicalState == PlayerPhysicalState.Uncontrolled,
                 "Large Player impulse did not enter Uncontrolled state.");
         }
 

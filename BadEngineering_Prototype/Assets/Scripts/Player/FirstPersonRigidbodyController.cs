@@ -8,13 +8,6 @@ namespace BadEngineering.Player
     [RequireComponent(typeof(Rigidbody), typeof(CapsuleCollider), typeof(PlayerPhysicsController))]
     public sealed class FirstPersonRigidbodyController : MonoBehaviour
     {
-        public enum PhysicalState
-        {
-            Normal,
-            Uncontrolled,
-            Recovering
-        }
-
         [Header("References")]
         [SerializeField] private Camera playerCamera;
         [SerializeField] private Transform headPivot;
@@ -40,8 +33,8 @@ namespace BadEngineering.Player
         private bool jumpQueued;
         private VehicleStationUser stationUser;
 
-        public bool IsUncontrolled => CurrentPhysicalState == PhysicalState.Uncontrolled;
-        public PhysicalState CurrentPhysicalState => playerPhysics != null ? playerPhysics.State : PhysicalState.Normal;
+        public bool IsUncontrolled => CurrentPhysicalState == PlayerPhysicalState.Uncontrolled;
+        public PlayerPhysicalState CurrentPhysicalState => playerPhysics != null ? playerPhysics.State : PlayerPhysicalState.Normal;
 
         private void Awake()
         {
@@ -80,9 +73,9 @@ namespace BadEngineering.Player
             }
         }
 
-        private void OnPhysicalStateChanged(PhysicalState state)
+        private void OnPhysicalStateChanged(PlayerPhysicalState state)
         {
-            if (state == PhysicalState.Normal)
+            if (state == PlayerPhysicalState.Normal)
             {
                 yaw = transform.eulerAngles.y;
             }

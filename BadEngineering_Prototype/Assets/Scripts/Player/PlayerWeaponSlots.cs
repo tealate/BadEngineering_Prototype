@@ -38,7 +38,8 @@ namespace BadEngineering.Player
 
         public bool AddOwnedWeapon(Weapon weapon)
         {
-            if (weapon == null || Array.IndexOf(slots, weapon) >= 0)
+            if (weapon == null || weapon.Owner != null || weapon.State != WeaponState.Dropped ||
+                Array.IndexOf(slots, weapon) >= 0)
             {
                 return false;
             }
@@ -51,7 +52,12 @@ namespace BadEngineering.Player
 
             slots[emptySlot] = weapon;
             weapon.SetOwner(this);
-            weapon.HoldByOwner();
+            if (!weapon.HoldByOwner())
+            {
+                weapon.SetOwner(null);
+                slots[emptySlot] = null;
+                return false;
+            }
             if (equippedSlot < 0)
             {
                 SelectSlot(emptySlot);
