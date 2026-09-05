@@ -2,6 +2,8 @@ using BadEngineering.Player;
 using BadEngineering.Interaction;
 using BadEngineering.UI;
 using BadEngineering.Weapons;
+using BadEngineering.Vehicle;
+using BadEngineering.Combat;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -23,17 +25,16 @@ namespace BadEngineering.Editor
 
             CreateGround();
             CreatePlayer();
-<<<<<<< Updated upstream
-=======
             CreateVehicle(tire);
             CreateDroppedWeapons();
             CreateTargets();
->>>>>>> Stashed changes
             CreateHud();
             CreateLighting();
+            ValidateScene();
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
+            EnsureSceneInBuildSettings();
             AssetDatabase.SaveAssets();
             Debug.Log($"Created prototype test scene: {ScenePath}");
         }
@@ -62,31 +63,44 @@ namespace BadEngineering.Editor
             body.collisionDetectionMode = CollisionDetectionMode.Continuous;
             body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
+            GameObject headPivot = new GameObject("HeadPivot");
+            headPivot.transform.SetParent(player.transform, false);
+            headPivot.transform.localPosition = new Vector3(0f, 0.72f, 0f);
+
             GameObject cameraObject = new GameObject("FirstPersonCamera");
             cameraObject.tag = "MainCamera";
-            cameraObject.transform.SetParent(player.transform, false);
-            cameraObject.transform.localPosition = new Vector3(0f, 0.72f, 0f);
+            cameraObject.transform.SetParent(headPivot.transform, false);
 
             var camera = cameraObject.AddComponent<Camera>();
             camera.fieldOfView = 75f;
             camera.nearClipPlane = 0.05f;
             cameraObject.AddComponent<AudioListener>();
 
-            CreateTestWeapon(player.transform);
+            GameObject weaponAttachRoot = new GameObject("WeaponAttachRoot");
+            weaponAttachRoot.transform.SetParent(cameraObject.transform, false);
+            weaponAttachRoot.transform.localPosition = new Vector3(0.24f, -0.2f, 0.55f);
+
+            CreateTestWeapon(weaponAttachRoot.transform, "Starter Gun", 8f, 65f);
             player.AddComponent<PlayerWeaponSlots>();
             player.AddComponent<FirstPersonRigidbodyController>();
             player.AddComponent<PlayerInteractor>();
+
+            WeaponHost host = player.GetComponent<WeaponHost>();
+            SetObjectReference(host, "weaponAttachRoot", weaponAttachRoot.transform);
         }
 
-        private static void CreateTestWeapon(Transform playerTransform)
+        private static TestProjectileWeapon CreateTestWeapon(
+            Transform parent,
+            string weaponName,
+            float mass,
+            float recoil)
         {
             GameObject weapon = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            weapon.name = "TestProjectileWeapon";
-            weapon.transform.SetParent(playerTransform, false);
-            weapon.transform.localPosition = new Vector3(0f, 1.1f, 0.35f);
+            weapon.name = weaponName;
+            weapon.transform.SetParent(parent, false);
+            weapon.transform.localPosition = Vector3.zero;
             weapon.transform.localRotation = Quaternion.identity;
             weapon.transform.localScale = new Vector3(0.16f, 0.16f, 0.55f);
-            Object.DestroyImmediate(weapon.GetComponent<Collider>());
 
             GameObject muzzle = new GameObject("Muzzle");
             muzzle.transform.SetParent(weapon.transform, false);
@@ -94,11 +108,11 @@ namespace BadEngineering.Editor
 
             var testWeapon = weapon.AddComponent<TestProjectileWeapon>();
             var serializedWeapon = new SerializedObject(testWeapon);
-            serializedWeapon.FindProperty("displayName").stringValue = "Test Gun";
+            serializedWeapon.FindProperty("displayName").stringValue = weaponName;
+            serializedWeapon.FindProperty("weaponMass").floatValue = mass;
             serializedWeapon.FindProperty("muzzle").objectReferenceValue = muzzle.transform;
+            serializedWeapon.FindProperty("recoilImpulse").floatValue = recoil;
             serializedWeapon.ApplyModifiedPropertiesWithoutUndo();
-<<<<<<< Updated upstream
-=======
             return testWeapon;
         }
 
@@ -166,6 +180,10 @@ namespace BadEngineering.Editor
             operating.transform.SetParent(station.transform, false);
             operating.transform.localPosition = Vector3.up * 0.45f;
 
+            GameObject cameraAnchor = new GameObject("Camera Anchor");
+            cameraAnchor.transform.SetParent(station.transform, false);
+            cameraAnchor.transform.localPosition = new Vector3(0f, 1.15f, 0.3f);
+
             GameObject exit = new GameObject("Exit Position");
             exit.transform.SetParent(vehicle, false);
             exit.transform.localPosition = new Vector3(type == VehicleStationType.Driver ? -2.2f : 2.2f, 1.1f, 0f);
@@ -174,6 +192,7 @@ namespace BadEngineering.Editor
             SerializedObject serialized = new SerializedObject(point);
             serialized.FindProperty("stationType").enumValueIndex = (int)type;
             serialized.FindProperty("operatingPosition").objectReferenceValue = operating.transform;
+            serialized.FindProperty("cameraAnchor").objectReferenceValue = cameraAnchor.transform;
             serialized.FindProperty("exitPosition").objectReferenceValue = exit.transform;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
@@ -312,7 +331,6 @@ namespace BadEngineering.Editor
             scenes.CopyTo(updated, 0);
             updated[^1] = new EditorBuildSettingsScene(ScenePath, true);
             EditorBuildSettings.scenes = updated;
->>>>>>> Stashed changes
         }
 
         private static void CreateLighting()

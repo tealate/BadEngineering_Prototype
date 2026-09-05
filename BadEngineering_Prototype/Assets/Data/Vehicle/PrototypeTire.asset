@@ -20,5 +20,5 @@ MonoBehaviour:
   drivePower: 6500
   brakePower: 9000
   maximumSteeringAngle: 30
-  suspensionLength: 0.55
+  suspensionLength: 0.7
   visualPrefab: {fileID: 100000, guid: a3ead7006238d28c29316b1b54e3da9a, type: 3}

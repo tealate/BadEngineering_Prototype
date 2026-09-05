@@ -7,8 +7,16 @@ namespace BadEngineering.Vehicle
         [SerializeField] bool canSteer, canDrive = true;
         [SerializeField] Transform visualRoot;
         [SerializeField] LayerMask groundMask = ~0;
+        Quaternion visualBaseLocalRotation;
         public bool CanDrive => canDrive; public bool IsGrounded { get; private set; }
         public Vector3 WheelCenter { get; private set; }
+
+        void Awake()
+        {
+            if (visualRoot != null)
+                visualBaseLocalRotation = visualRoot.localRotation;
+        }
+
         public void Simulate(Rigidbody body, TireDefinition tire, VehicleInput input, int drivenCount)
         {
             Vector3 down = -transform.up; float rayLength = tire.SuspensionLength + tire.Radius;
@@ -35,7 +43,10 @@ namespace BadEngineering.Vehicle
         void UpdateVisual(TireDefinition tire, float steering)
         {
             if (visualRoot == null) return; visualRoot.position = WheelCenter;
-            visualRoot.rotation = transform.rotation * Quaternion.AngleAxis(canSteer ? steering * tire.MaximumSteeringAngle : 0f, Vector3.up);
+            Quaternion steeringRotation = Quaternion.AngleAxis(
+                canSteer ? steering * tire.MaximumSteeringAngle : 0f,
+                Vector3.up);
+            visualRoot.rotation = transform.rotation * steeringRotation * visualBaseLocalRotation;
         }
     }
 }

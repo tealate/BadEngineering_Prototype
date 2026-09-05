@@ -37,7 +37,7 @@ namespace BadEngineering.Vehicle
         private void FixedUpdate()
         {
             movementSystem?.SimulatePhysics();
-        }
+            }
 
         private void OnDisable() => SetMovementInput(VehicleInput.None);
     }
