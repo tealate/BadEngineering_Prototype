@@ -7,7 +7,7 @@ namespace BadEngineering.Vehicle
     public enum VehicleStationType
     {
         Driver,
-        Gunner
+        Crew
     }
 
     [DisallowMultipleComponent]
@@ -15,11 +15,18 @@ namespace BadEngineering.Vehicle
     {
         [SerializeField] private VehicleStationType stationType;
         [SerializeField] private Transform operatingPosition;
+        [SerializeField] private Transform cameraAnchor;
+        [SerializeField] private Vector3 cameraOffset = new(0f, 0.7f, 0.3f);
+        [SerializeField] private Transform exitPosition;
 
         private GameObject currentUser;
 
         public VehicleStationType StationType => stationType;
         public Transform OperatingPosition => operatingPosition != null ? operatingPosition : transform;
+        public Transform CameraAnchor => cameraAnchor != null ? cameraAnchor : OperatingPosition;
+        public Vector3 CameraOffset => cameraAnchor != null ? Vector3.zero : cameraOffset;
+        public Transform ExitPosition => exitPosition != null ? exitPosition : transform;
+        public VehiclePhysicsController Vehicle => GetComponentInParent<VehiclePhysicsController>();
         public GameObject CurrentUser => currentUser;
         public bool IsOccupied => currentUser != null;
 
@@ -74,7 +81,9 @@ namespace BadEngineering.Vehicle
 
         private void OnDisable()
         {
-            if (currentUser != null)
+            // Releasing reparents the user. Unity does not allow that while this
+            // GameObject or one of its parents is being deactivated.
+            if (gameObject.activeInHierarchy && currentUser != null)
             {
                 TryRelease(currentUser);
             }
