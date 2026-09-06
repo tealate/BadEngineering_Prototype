@@ -52,6 +52,7 @@ namespace BadEngineering.Editor
             PlayerWeaponSlots slots = RequireOne<PlayerWeaponSlots>();
             FirstPersonRigidbodyController player = RequireOne<FirstPersonRigidbodyController>();
             VehiclePhysicsController vehicle = RequireOne<VehiclePhysicsController>();
+            ValidateAutomaticWheelLayout(vehicle);
             VehicleStationUser stationUser = RequireOne<VehicleStationUser>();
             VehicleInteractionPoint[] stations = Object.FindObjectsByType<VehicleInteractionPoint>(FindObjectsSortMode.None);
 
@@ -102,6 +103,24 @@ namespace BadEngineering.Editor
             starter.PrimaryPressed();
             Assert(player.CurrentPhysicalState == PlayerPhysicalState.Uncontrolled,
                 "Firing a held weapon did not enter Uncontrolled state.");
+        }
+
+        private static void ValidateAutomaticWheelLayout(VehiclePhysicsController vehicle)
+        {
+            WheelSystem wheels = vehicle.GetComponentInChildren<WheelSystem>();
+            Assert(wheels != null && wheels.WheelPoints.Length == 4, "Vehicle did not create a four-wheel layout.");
+            Assert(wheels.transform != vehicle.transform,
+                "WheelSystem was not separated into a child movement module.");
+            WheelPoint fl = wheels.WheelPoints[0], fr = wheels.WheelPoints[1];
+            WheelPoint rl = wheels.WheelPoints[2], rr = wheels.WheelPoints[3];
+            Assert(fl.CanSteer && fr.CanSteer && !rl.CanSteer && !rr.CanSteer,
+                "Automatic layout did not configure front-wheel steering.");
+            Assert(fl.CanDrive && fr.CanDrive && rl.CanDrive && rr.CanDrive,
+                "Automatic layout did not configure all-wheel drive.");
+            Assert(fl.transform.localPosition.x < fr.transform.localPosition.x &&
+                   rl.transform.localPosition.x < rr.transform.localPosition.x &&
+                   fl.transform.localPosition.z > rl.transform.localPosition.z,
+                "Automatic wheel positions are not ordered FL/FR/RL/RR.");
         }
 
         private static void ValidateSecondOwnerOnSameVehicle(WeaponHost vehicleHost, float initialMass)

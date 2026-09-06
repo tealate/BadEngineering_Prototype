@@ -19,7 +19,7 @@ namespace BadEngineering.Vehicle
         private void Awake()
         {
             body = GetComponent<Rigidbody>();
-            movementSystem ??= GetComponent<MovementSystem>();
+            movementSystem ??= GetComponentInChildren<MovementSystem>(true);
             if (centerOfMassMarker != null)
             {
                 body.centerOfMass = transform.InverseTransformPoint(centerOfMassMarker.position);
@@ -32,12 +32,22 @@ namespace BadEngineering.Vehicle
             movementSystem?.ApplyInput(input);
         }
 
+        public void SetMovementSystem(MovementSystem system)
+        {
+            if (movementSystem == system)
+                return;
+
+            movementSystem?.ApplyInput(VehicleInput.None);
+            movementSystem = system;
+            movementSystem?.ApplyInput(movementInput);
+        }
+
         public void SetDriveInput(Vector2 input) => SetMovementInput(new VehicleInput(input.y, input.x, 0f));
 
         private void FixedUpdate()
         {
             movementSystem?.SimulatePhysics();
-            }
+        }
 
         private void OnDisable() => SetMovementInput(VehicleInput.None);
     }

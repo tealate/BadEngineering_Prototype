@@ -15,17 +15,19 @@ namespace BadEngineering.Editor
     {
         private const string ScenePath = "Assets/Scenes/PrototypeTest.unity";
         private const string TirePrefabPath = "Assets/Prefabs/Vehicle/PrototypeTire.prefab";
+        private const string WheeledMovementPrefabPath = "Assets/Prefabs/Vehicle/WheeledMovement.prefab";
         private const string TireDefinitionPath = "Assets/Data/Vehicle/PrototypeTire.asset";
 
         [MenuItem("Bad Engineering/Build Prototype Test Scene")]
         public static void BuildScene()
         {
             TireDefinition tire = EnsurePrototypeTireAssets();
+            GameObject wheeledMovementPrefab = EnsureWheeledMovementPrefab(tire);
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             CreateGround();
             CreatePlayer();
-            CreateVehicle(tire);
+            CreateVehicle(wheeledMovementPrefab);
             CreateDroppedWeapons();
             CreateTargets();
             CreateHud();
@@ -131,7 +133,7 @@ namespace BadEngineering.Editor
             body.collisionDetectionMode = CollisionDetectionMode.Continuous;
         }
 
-        private static void CreateVehicle(TireDefinition tire)
+        private static void CreateVehicle(GameObject wheeledMovementPrefab)
         {
             GameObject vehicle = new GameObject("Prototype Vehicle");
             vehicle.name = "Prototype Vehicle";
@@ -150,18 +152,31 @@ namespace BadEngineering.Editor
             WeaponHost host = vehicle.AddComponent<WeaponHost>();
             SetBoolean(host, "includeAttachedWeaponMass", true);
             VehiclePhysicsController controller = vehicle.AddComponent<VehiclePhysicsController>();
-            WheelSystem wheelSystem = vehicle.AddComponent<WheelSystem>();
+            GameObject movementRoot = new GameObject("Movement Root");
+            movementRoot.transform.SetParent(vehicle.transform, false);
+            GameObject movementModule = (GameObject)PrefabUtility.InstantiatePrefab(wheeledMovementPrefab, movementRoot.transform);
+            WheelSystem wheelSystem = movementModule.GetComponent<WheelSystem>();
             SetObjectReference(controller, "movementSystem", wheelSystem);
-            SetObjectReference(wheelSystem, "currentTire", tire);
+            SetObjectReference(wheelSystem, "chassisBoundsSource", chassis.GetComponent<Collider>());
             chassis.AddComponent<VehicleWeaponSurface>();
 
             CreateStation(vehicle.transform, "Driver Seat", VehicleStationType.Driver, new Vector3(-0.7f, 0.75f, 1f));
             CreateStation(vehicle.transform, "Crew Seat", VehicleStationType.Crew, new Vector3(0.7f, 0.75f, 1f));
 
-            CreateWheelPoint(vehicle.transform, "WheelPoint_FL", new Vector3(-1.7f, 0f, 1.6f), true, tire);
-            CreateWheelPoint(vehicle.transform, "WheelPoint_FR", new Vector3(1.7f, 0f, 1.6f), true, tire);
-            CreateWheelPoint(vehicle.transform, "WheelPoint_RL", new Vector3(-1.7f, 0f, -1.6f), false, tire);
-            CreateWheelPoint(vehicle.transform, "WheelPoint_RR", new Vector3(1.7f, 0f, -1.6f), false, tire);
+        }
+
+        private static GameObject EnsureWheeledMovementPrefab(TireDefinition tire)
+        {
+            GameObject root = new GameObject("Wheeled Movement");
+            WheelSystem wheelSystem = root.AddComponent<WheelSystem>();
+            SetObjectReference(wheelSystem, "currentTire", tire);
+            CreateWheelPoint(root.transform, "WheelPoint_FL", Vector3.zero, true, tire);
+            CreateWheelPoint(root.transform, "WheelPoint_FR", Vector3.zero, true, tire);
+            CreateWheelPoint(root.transform, "WheelPoint_RL", Vector3.zero, false, tire);
+            CreateWheelPoint(root.transform, "WheelPoint_RR", Vector3.zero, false, tire);
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, WheeledMovementPrefabPath);
+            Object.DestroyImmediate(root);
+            return prefab;
         }
 
         private static void CreateStation(Transform vehicle, string name, VehicleStationType type, Vector3 localPosition)
@@ -290,6 +305,7 @@ namespace BadEngineering.Editor
             RequireExactlyOne<PlayerWeaponSlots>("Player weapon slots");
             RequireExactlyOne<FirstPersonRigidbodyController>("Player controller");
             RequireExactlyOne<VehiclePhysicsController>("Vehicle physics controller");
+            RequireExactlyOne<WheelSystem>("Wheeled movement module");
 
             if (Object.FindObjectsByType<VehicleInteractionPoint>(FindObjectsSortMode.None).Length < 2)
             {

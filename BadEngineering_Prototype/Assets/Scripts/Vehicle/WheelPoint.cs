@@ -8,8 +8,43 @@ namespace BadEngineering.Vehicle
         [SerializeField] Transform visualRoot;
         [SerializeField] LayerMask groundMask = ~0;
         Quaternion visualBaseLocalRotation;
-        public bool CanDrive => canDrive; public bool IsGrounded { get; private set; }
+        TireDefinition appliedTire;
+        public bool CanSteer => canSteer; public bool CanDrive => canDrive; public bool IsGrounded { get; private set; }
         public Vector3 WheelCenter { get; private set; }
+
+        public void Configure(bool steer, bool drive)
+        {
+            canSteer = steer;
+            canDrive = drive;
+        }
+
+        public void ApplyTire(TireDefinition tire)
+        {
+            if (tire == null || appliedTire == tire)
+                return;
+
+            if (visualRoot != null && appliedTire == null)
+            {
+                appliedTire = tire;
+                return;
+            }
+
+            if (visualRoot != null)
+            {
+                if (Application.isPlaying) Destroy(visualRoot.gameObject);
+                else DestroyImmediate(visualRoot.gameObject);
+                visualRoot = null;
+            }
+
+            if (tire.VisualPrefab != null)
+            {
+                GameObject visual = Instantiate(tire.VisualPrefab, transform);
+                visual.name = "Visual";
+                visualRoot = visual.transform;
+                visualBaseLocalRotation = visualRoot.localRotation;
+            }
+            appliedTire = tire;
+        }
 
         void Awake()
         {
