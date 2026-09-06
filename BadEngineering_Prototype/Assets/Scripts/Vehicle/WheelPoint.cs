@@ -9,8 +9,9 @@ namespace BadEngineering.Vehicle
         [SerializeField] bool canDrive = true;
         [SerializeField] Transform visualRoot;
         [SerializeField] LayerMask groundMask = ~0;
+        [SerializeField, Min(0f)] float lateralVelocityDeadZone = 0.03f;
 
-        // ”÷¬‚Èã‰º‘¬“x‚É‚æ‚éƒTƒXƒyƒ“ƒVƒ‡ƒ“‚ÌU“®‚ğ—}‚¦‚éB
+        // å¾®å°ãªä¸Šä¸‹é€Ÿåº¦ã«ã‚ˆã‚‹ã‚µã‚¹ãƒšãƒ³ã‚·ãƒ§ãƒ³ã®æŒ¯å‹•ã‚’æŠ‘ãˆã‚‹ã€‚
         const float SuspensionVelocityDeadZone = 0.02f;
 
         Quaternion visualBaseLocalRotation;
@@ -109,8 +110,8 @@ namespace BadEngineering.Vehicle
             if (!IsGrounded)
                 return;
 
-            // Ú’n“_‚Ì‘¬“xB
-            // ƒ^ƒCƒ„‚Ì‰¡ƒOƒŠƒbƒvE‹ì“®EƒuƒŒ[ƒL‚Åg—p‚·‚éB
+            // æ¥åœ°ç‚¹ã®é€Ÿåº¦ã€‚
+            // ã‚¿ã‚¤ãƒ¤ã®æ¨ªã‚°ãƒªãƒƒãƒ—ãƒ»é§†å‹•ãƒ»ãƒ–ãƒ¬ãƒ¼ã‚­ã§ä½¿ç”¨ã™ã‚‹ã€‚
             Vector3 contactVelocity =
                 body.GetPointVelocity(hit.point);
 
@@ -118,20 +119,20 @@ namespace BadEngineering.Vehicle
             // Suspension
             // ---------------------------------------------------------
 
-            // ƒTƒXƒyƒ“ƒVƒ‡ƒ“‚ÌÀÛ‚Ìˆ³k‹——£ [m]
+            // ã‚µã‚¹ãƒšãƒ³ã‚·ãƒ§ãƒ³ã®å®Ÿéš›ã®åœ§ç¸®è·é›¢ [m]
             //
             // 0
-            //   = Š®‘S‚ÉL‚Ñ‚Ä‚¢‚é
+            //   = å®Œå…¨ã«ä¼¸ã³ã¦ã„ã‚‹
             //
             // SuspensionLength
-            //   = Š®‘S‚Ék‚ñ‚Å‚¢‚é
+            //   = å®Œå…¨ã«ç¸®ã‚“ã§ã„ã‚‹
             float compressionDistance = Mathf.Clamp(
                 rayLength - hit.distance,
                 0f,
                 suspensionLength);
 
-            // ƒTƒXƒyƒ“ƒVƒ‡ƒ“æ•tˆÊ’u‚»‚Ì‚à‚Ì‚Ì‘¬“x‚ğg—p‚·‚éB
-            // Ú’n“_‚Ì‘¬“x‚ğg‚¤‚ÆÔ‘Ì‚Ì‰ñ“]‚È‚Ç‚Ì‰e‹¿‚ª¬‚´‚è‚â‚·‚¢B
+            // ã‚µã‚¹ãƒšãƒ³ã‚·ãƒ§ãƒ³å–ä»˜ä½ç½®ãã®ã‚‚ã®ã®é€Ÿåº¦ã‚’ä½¿ç”¨ã™ã‚‹ã€‚
+            // æ¥åœ°ç‚¹ã®é€Ÿåº¦ã‚’ä½¿ã†ã¨è»Šä½“ã®å›è»¢ãªã©ã®å½±éŸ¿ãŒæ··ã–ã‚Šã‚„ã™ã„ã€‚
             Vector3 suspensionPointVelocity =
                 body.GetPointVelocity(transform.position);
 
@@ -140,7 +141,7 @@ namespace BadEngineering.Vehicle
                     suspensionPointVelocity,
                     up);
 
-            // Ã~•t‹ß‚Ì”÷¬‘¬“x‚ğƒ_ƒ“ƒp[‚ªE‚¢‘±‚¯‚é‚Ì‚ğ–h~B
+            // é™æ­¢ä»˜è¿‘ã®å¾®å°é€Ÿåº¦ã‚’ãƒ€ãƒ³ãƒ‘ãƒ¼ãŒæ‹¾ã„ç¶šã‘ã‚‹ã®ã‚’é˜²æ­¢ã€‚
             if (Mathf.Abs(suspensionVelocity)
                 < SuspensionVelocityDeadZone)
             {
@@ -151,24 +152,24 @@ namespace BadEngineering.Vehicle
             //
             // F = kx
             //
-            // tire.Spring ‚Í N/m ‚Æ‚µ‚Äˆµ‚¤B
+            // tire.Spring ã¯ N/m ã¨ã—ã¦æ‰±ã†ã€‚
             float springForce =
                 compressionDistance * tire.Spring;
 
             // Damper:
             //
-            // ã•ûŒü‚Ö“®‚¢‚Ä‚¢‚é‚Æ‚«‚Í—Í‚ğŒ¸‚ç‚·B
-            // ‰º•ûŒü‚Ö“®‚¢‚Ä‚¢‚é‚Æ‚«‚Í—Í‚ğ‘‚â‚·B
+            // ä¸Šæ–¹å‘ã¸å‹•ã„ã¦ã„ã‚‹ã¨ãã¯åŠ›ã‚’æ¸›ã‚‰ã™ã€‚
+            // ä¸‹æ–¹å‘ã¸å‹•ã„ã¦ã„ã‚‹ã¨ãã¯åŠ›ã‚’å¢—ã‚„ã™ã€‚
             float dampingForce =
                 -suspensionVelocity * tire.Damping;
 
-            // ’n–Ê‚ğˆø‚Á’£‚é‚±‚Æ‚Í‚Å‚«‚È‚¢‚½‚ß0–¢–‚É‚Í‚µ‚È‚¢B
+            // åœ°é¢ã‚’å¼•ã£å¼µã‚‹ã“ã¨ã¯ã§ããªã„ãŸã‚0æœªæº€ã«ã¯ã—ãªã„ã€‚
             float suspensionForce =
                 Mathf.Max(
                     0f,
                     springForce + dampingForce);
 
-            // ˆÙí‚ÈuŠÔ‰×d‚ğ–h~B
+            // ç•°å¸¸ãªç¬é–“è·é‡ã‚’é˜²æ­¢ã€‚
             float staticLoadPerWheel =
                 body.mass *
                 Physics.gravity.magnitude /
@@ -225,16 +226,19 @@ namespace BadEngineering.Vehicle
                     contactVelocity,
                     right);
 
-            Vector3 lateralForce =
-                -right *
-                lateralSpeed *
-                tire.Grip *
-                body.mass;
+            if (Mathf.Abs(lateralSpeed) >= lateralVelocityDeadZone)
+            {
+                Vector3 lateralForce =
+                    -right *
+                    lateralSpeed *
+                    tire.Grip *
+                    body.mass;
 
-            body.AddForceAtPosition(
-                lateralForce,
-                hit.point,
-                ForceMode.Force);
+                body.AddForceAtPosition(
+                    lateralForce,
+                    hit.point,
+                    ForceMode.Force);
+            }
 
             // ---------------------------------------------------------
             // Drive
@@ -314,10 +318,10 @@ namespace BadEngineering.Vehicle
                 Rigidbody hitBody =
                     candidate.rigidbody;
 
-                // ©•ª©g‚Í–³‹B
+                // è‡ªåˆ†è‡ªèº«ã¯ç„¡è¦–ã€‚
                 //
-                // “®“IRigidbody‚à–³‹‚·‚éB
-                // ƒvƒŒƒCƒ„[“™‚ğƒ^ƒCƒ„‚ª’n–Ê‚Æ‚µ‚Äˆµ‚í‚È‚¢‚½‚ßB
+                // å‹•çš„Rigidbodyã‚‚ç„¡è¦–ã™ã‚‹ã€‚
+                // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ç­‰ã‚’ã‚¿ã‚¤ãƒ¤ãŒåœ°é¢ã¨ã—ã¦æ‰±ã‚ãªã„ãŸã‚ã€‚
                 if (hitBody == body ||
                     (hitBody != null &&
                      !hitBody.isKinematic))
