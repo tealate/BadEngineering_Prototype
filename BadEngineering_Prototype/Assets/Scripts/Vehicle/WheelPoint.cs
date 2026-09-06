@@ -9,7 +9,14 @@ namespace BadEngineering.Vehicle
         [SerializeField] bool canDrive = true;
         [SerializeField] Transform visualRoot;
         [SerializeField] LayerMask groundMask = ~0;
+
+        [Header("Grip")]
         [SerializeField, Min(0f)] float lateralVelocityDeadZone = 0.03f;
+
+        // 横滑りを1 FixedUpdateで完全に消そうとすると、
+        // 複数WheelPoint間で補正が反転しやすいため、
+        // 1ステップあたりの補正量を抑える。
+        [SerializeField, Range(0f, 1f)] float lateralGripResponse = 0.2f;
 
         // 微小な上下速度によるサスペンションの振動を抑える。
         const float SuspensionVelocityDeadZone = 0.02f;
@@ -228,22 +235,31 @@ namespace BadEngineering.Vehicle
 
             if (Mathf.Abs(lateralSpeed) >= lateralVelocityDeadZone)
             {
+                // 各WheelPointが担当すると仮定する車体質量。
                 float supportedMass =
                     body.mass /
                     Mathf.Max(1, wheelCount);
 
-                float forceToCancelSlip =
+                // 横速度を1 FixedUpdateで完全に0へ持っていく力ではなく、
+                // lateralGripResponse分だけ減衰させる力を求める。
+                //
+                // これにより、複数のWheelPointが同時に強い補正を行って
+                // 横速度や角速度が毎フレーム反転するのを抑える。
+                float forceToReduceSlip =
                     Mathf.Abs(lateralSpeed) *
                     supportedMass /
-                    Time.fixedDeltaTime;
+                    Time.fixedDeltaTime *
+                    lateralGripResponse;
 
+                // 最大横グリップ力は、
+                // 現在そのタイヤが受け持っている垂直荷重に比例させる。
                 float maximumGripForce =
                     suspensionForce *
                     tire.Grip;
 
                 float lateralForceMagnitude =
                     Mathf.Min(
-                        forceToCancelSlip,
+                        forceToReduceSlip,
                         maximumGripForce);
 
                 Vector3 lateralForce =
