@@ -21,9 +21,12 @@ namespace BadEngineering.Player
         private float normalAngularDamping;
         private RigidbodyConstraints normalConstraints;
         private float uncontrolledUntil;
+        private PhysicsMaterial contactMaterial;
 
         public PlayerPhysicalState State { get; private set; } = PlayerPhysicalState.Normal;
         public bool IsGrounded { get; private set; }
+        public Rigidbody GroundBody { get; private set; }
+        public Vector3 GroundVelocity { get; private set; }
         public bool CanMove => State == PlayerPhysicalState.Normal;
         public event Action<PlayerPhysicalState> StateChanged;
 
@@ -31,9 +34,32 @@ namespace BadEngineering.Player
         {
             body = GetComponent<Rigidbody>();
             capsule = GetComponent<CapsuleCollider>();
+            contactMaterial = CreateFrictionlessMaterial("Player Contact");
+            capsule.sharedMaterial = contactMaterial;
+            body.maxDepenetrationVelocity = 3f;
             normalAngularDamping = body.angularDamping;
-            normalConstraints = body.constraints | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            // Normal movement owns the player's facing through MoveRotation.
+            // Leaving Y rotation dynamic makes collision torque fight that target rotation forever.
+            normalConstraints = body.constraints | RigidbodyConstraints.FreezeRotation;
             body.constraints = normalConstraints;
+        }
+
+        private static PhysicsMaterial CreateFrictionlessMaterial(string materialName)
+        {
+            return new PhysicsMaterial(materialName)
+            {
+                dynamicFriction = 0f,
+                staticFriction = 0f,
+                bounciness = 0f,
+                frictionCombine = PhysicsMaterialCombine.Minimum,
+                bounceCombine = PhysicsMaterialCombine.Minimum
+            };
+        }
+
+        private void OnDestroy()
+        {
+            if (contactMaterial != null)
+                Destroy(contactMaterial);
         }
 
         private void FixedUpdate()
@@ -69,7 +95,7 @@ namespace BadEngineering.Player
             uncontrolledUntil = Time.time + uncontrolledDuration;
             SetState(PlayerPhysicalState.Uncontrolled);
             body.angularDamping = Mathf.Max(normalAngularDamping, uncontrolledAngularDamping);
-            body.constraints = normalConstraints & ~(RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ);
+            body.constraints = normalConstraints & ~RigidbodyConstraints.FreezeRotation;
         }
 
         private void FinishRecovery()
@@ -94,6 +120,8 @@ namespace BadEngineering.Player
 
         private bool CheckGrounded()
         {
+            GroundBody = null;
+            GroundVelocity = Vector3.zero;
             Vector3 center = transform.TransformPoint(capsule.center);
             float scaledHalfHeight = capsule.height * Mathf.Abs(transform.lossyScale.y) * 0.5f;
             float scaledRadius = capsule.radius * Mathf.Max(
@@ -110,15 +138,24 @@ namespace BadEngineering.Player
                 Physics.AllLayers,
                 QueryTriggerInteraction.Ignore);
 
+            bool foundGround = false;
+            float closestDistance = float.PositiveInfinity;
             for (int i = 0; i < hitCount; i++)
             {
                 RaycastHit hit = groundHits[i];
-                if (hit.collider != capsule && Vector3.Dot(hit.normal, Vector3.up) >= minimumGroundNormal)
+                if (hit.collider != capsule &&
+                    Vector3.Dot(hit.normal, Vector3.up) >= minimumGroundNormal &&
+                    hit.distance < closestDistance)
                 {
-                    return true;
+                    foundGround = true;
+                    closestDistance = hit.distance;
+                    GroundBody = hit.rigidbody;
+                    GroundVelocity = GroundBody != null
+                        ? GroundBody.GetPointVelocity(hit.point)
+                        : Vector3.zero;
                 }
             }
-            return false;
+            return foundGround;
         }
 
     }

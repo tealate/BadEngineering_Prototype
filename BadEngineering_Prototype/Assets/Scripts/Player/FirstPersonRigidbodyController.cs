@@ -35,6 +35,8 @@ namespace BadEngineering.Player
         private Transform originalHeadParent;
         private Vector3 originalHeadLocalPosition;
         private Quaternion originalHeadLocalRotation;
+        private readonly Vector3[] blockingNormals = new Vector3[8];
+        private int blockingNormalCount;
 
         public bool IsUncontrolled => CurrentPhysicalState == PlayerPhysicalState.Uncontrolled;
         public PlayerPhysicalState CurrentPhysicalState => playerPhysics != null ? playerPhysics.State : PlayerPhysicalState.Normal;
@@ -121,6 +123,19 @@ namespace BadEngineering.Player
             ApplyRotation();
             ApplyMovement();
             ApplyJump();
+            blockingNormalCount = 0;
+        }
+
+        private void OnCollisionStay(Collision collision)
+        {
+            int remaining = blockingNormals.Length - blockingNormalCount;
+            int count = Mathf.Min(collision.contactCount, remaining);
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 normal = collision.GetContact(i).normal;
+                if (Mathf.Abs(normal.y) < 0.7f)
+                    blockingNormals[blockingNormalCount++] = normal;
+            }
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -300,7 +315,11 @@ namespace BadEngineering.Player
 
         private void ApplyMovement()
         {
-            Vector3 desiredVelocity = (transform.right * moveInput.x + transform.forward * moveInput.y) * moveSpeed;
+            Vector3 supportVelocity = playerPhysics.IsGrounded
+                ? Vector3.ProjectOnPlane(playerPhysics.GroundVelocity, Vector3.up)
+                : Vector3.zero;
+            Vector3 desiredVelocity = supportVelocity +
+                (transform.right * moveInput.x + transform.forward * moveInput.y) * moveSpeed;
             Vector3 currentHorizontalVelocity = Vector3.ProjectOnPlane(body.linearVelocity, Vector3.up);
             Vector3 velocityChange = desiredVelocity - currentHorizontalVelocity;
 
@@ -313,6 +332,14 @@ namespace BadEngineering.Player
             Vector3 accelerationVector = Vector3.ClampMagnitude(
                 velocityChange / Time.fixedDeltaTime,
                 acceleration);
+
+            for (int i = 0; i < blockingNormalCount; i++)
+            {
+                Vector3 normal = blockingNormals[i];
+                float intoContact = Vector3.Dot(accelerationVector, normal);
+                if (intoContact < 0f)
+                    accelerationVector -= normal * intoContact;
+            }
             body.AddForce(accelerationVector, ForceMode.Acceleration);
         }
 

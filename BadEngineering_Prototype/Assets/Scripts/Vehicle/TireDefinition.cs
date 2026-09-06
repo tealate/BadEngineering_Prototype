@@ -8,10 +8,12 @@ namespace BadEngineering.Vehicle
         [SerializeField, Min(0f)] float mass = 18f, grip = 6f, spring = 22000f, damping = 2800f, drivePower = 6500f, brakePower = 9000f;
         [SerializeField, Range(0f, 60f)] float maximumSteeringAngle = 30f;
         [SerializeField, Min(.01f)] float suspensionLength = .7f;
+        [SerializeField, Min(1f)] float maximumSuspensionLoad = 3f;
         [SerializeField] GameObject visualPrefab;
         public float Radius => radius; public float Mass => mass; public float Grip => grip;
         public float Spring => spring; public float Damping => damping; public float DrivePower => drivePower;
         public float BrakePower => brakePower; public float MaximumSteeringAngle => maximumSteeringAngle;
         public float SuspensionLength => suspensionLength; public GameObject VisualPrefab => visualPrefab;
+        public float MaximumSuspensionLoad => maximumSuspensionLoad;
     }
 }

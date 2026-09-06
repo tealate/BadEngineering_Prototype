@@ -11,6 +11,7 @@ namespace BadEngineering.Vehicle
 
         private Rigidbody body;
         private VehicleInput movementInput;
+        private PhysicsMaterial contactMaterial;
 
         public Rigidbody Body => body;
         public MovementSystem Movement => movementSystem;
@@ -19,10 +20,31 @@ namespace BadEngineering.Vehicle
         private void Awake()
         {
             body = GetComponent<Rigidbody>();
+            body.maxDepenetrationVelocity = 1f;
+            body.angularDamping = Mathf.Max(body.angularDamping, 1f);
+            ApplyFrictionlessChassisMaterial();
             movementSystem ??= GetComponentInChildren<MovementSystem>(true);
             if (centerOfMassMarker != null)
             {
                 body.centerOfMass = transform.InverseTransformPoint(centerOfMassMarker.position);
+            }
+        }
+
+        private void ApplyFrictionlessChassisMaterial()
+        {
+            contactMaterial = new PhysicsMaterial("Vehicle Chassis Contact")
+            {
+                dynamicFriction = 0f,
+                staticFriction = 0f,
+                bounciness = 0f,
+                frictionCombine = PhysicsMaterialCombine.Minimum,
+                bounceCombine = PhysicsMaterialCombine.Minimum
+            };
+
+            foreach (Collider vehicleCollider in GetComponentsInChildren<Collider>(true))
+            {
+                if (!vehicleCollider.isTrigger && vehicleCollider.GetComponentInParent<WheelPoint>() == null)
+                    vehicleCollider.sharedMaterial = contactMaterial;
             }
         }
 
@@ -50,5 +72,11 @@ namespace BadEngineering.Vehicle
         }
 
         private void OnDisable() => SetMovementInput(VehicleInput.None);
+
+        private void OnDestroy()
+        {
+            if (contactMaterial != null)
+                Destroy(contactMaterial);
+        }
     }
 }

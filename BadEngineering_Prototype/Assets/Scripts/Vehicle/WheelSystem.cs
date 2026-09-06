@@ -157,7 +157,7 @@ namespace BadEngineering.Vehicle
         {
             if (currentTire == null || wheelPoints == null) return; int driven = 0;
             foreach (WheelPoint p in wheelPoints) if (p != null && p.CanDrive) driven++;
-            foreach (WheelPoint p in wheelPoints) p?.Simulate(Body, currentTire, Input, driven);
+            foreach (WheelPoint p in wheelPoints) p?.Simulate(Body, currentTire, Input, driven, wheelPoints.Length);
         }
     }
 }
