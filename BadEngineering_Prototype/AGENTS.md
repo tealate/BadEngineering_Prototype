@@ -53,13 +53,14 @@ Codexが新規作成・変更するコードは、第三者が処理の目的と
 
 ## Current Prototype Scope
 
-1. Player movement
-2. Vehicle movement
-3. Enter / exit vehicle
-4. Weapon pickup
-5. Attach weapon to vehicle
-6. Fire weapon
-7. Apply recoil to vehicle
+現在はPrototype段階。
+
+具体的な実装範囲は、各タスクでユーザーから指定された仕様・実装依頼を優先する。
+
+Notionにタスク専用の実装仕様が指定されている場合は、そのページを今回の作業範囲の一次資料とする。
+
+AGENTS.mdには変化しやすい個別機能一覧を固定しない。
+Prototypeの目的は、Vehicle / Weapon / Physics / Multiplayerを中心としたコアゲームプレイを、実際に複数人でテスト可能な状態まで構築すること。
 
 ## Project Documentation
 
@@ -74,3 +75,15 @@ Notionの確認は、ユーザーから依頼された場合、または作業�
 Notionへの書き込みは、ユーザーから明示的に依頼された場合のみ行う。
 
 仕様が不明でも安全に判断できる範囲は合理的に進める。結果が大きく変わる判断のみ、ユーザーへ短く確認する。
+
+## Source of Truth Priority
+
+仕様・実装方針が競合する場合は、原則として以下の優先順位で判断する。
+
+1. 現在のユーザー指示
+2. 今回のタスクで明示されたNotion仕様
+3. AGENTS.md
+4. その他のNotion仕様
+5. 既存実装・既存ドキュメント
+
+既存実装が最新仕様と競合する場合、既存実装を仕様とはみなさない。

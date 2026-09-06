@@ -64,6 +64,7 @@ namespace BadEngineering.Player
 
         private void FixedUpdate()
         {
+            if (!BadEngineering.Network.GameplayAuthority.CanSimulate) return;
             if (body.isKinematic)
             {
                 return;

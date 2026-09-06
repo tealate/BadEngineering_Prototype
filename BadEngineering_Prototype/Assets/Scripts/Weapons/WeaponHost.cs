@@ -33,6 +33,15 @@ namespace BadEngineering.Weapons
 
             float totalMass = baseMass;
             Vector3 weightedCenter = baseCenterOfMass * baseMass;
+            var wheels = GetComponentInChildren<BadEngineering.Vehicle.WheelSystem>();
+            if (wheels != null && wheels.CurrentTire != null)
+            {
+                foreach (var point in wheels.GetComponentsInChildren<BadEngineering.Vehicle.WheelPoint>())
+                {
+                    totalMass += wheels.CurrentTire.Mass;
+                    weightedCenter += transform.InverseTransformPoint(point.transform.position) * wheels.CurrentTire.Mass;
+                }
+            }
             Weapon[] weapons = WeaponAttachRoot.GetComponentsInChildren<Weapon>(true);
             foreach (Weapon weapon in weapons)
             {

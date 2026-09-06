@@ -83,6 +83,7 @@ namespace BadEngineering.Vehicle
 
         private void FixedUpdate()
         {
+            if (!BadEngineering.Network.GameplayAuthority.CanSimulate) return;
             if (body.IsSleeping())
                 return;
 

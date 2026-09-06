@@ -28,11 +28,12 @@ namespace BadEngineering.UI
         {
             if (weaponSlots == null)
             {
-                weaponSlots = FindFirstObjectByType<PlayerWeaponSlots>();
+                foreach (var candidate in FindObjectsByType<PlayerWeaponSlots>(FindObjectsSortMode.None))
+                    if (BadEngineering.Network.GameplayAuthority.IsLocal(candidate.gameObject)) { weaponSlots = candidate; break; }
             }
             if (playerController == null)
             {
-                playerController = FindFirstObjectByType<FirstPersonRigidbodyController>();
+                playerController = weaponSlots != null ? weaponSlots.GetComponent<FirstPersonRigidbodyController>() : null;
             }
             if (stationUser == null && weaponSlots != null)
             {
@@ -55,7 +56,7 @@ namespace BadEngineering.UI
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
             rect.anchoredPosition = new Vector2(24f, -24f);
-            rect.sizeDelta = new Vector2(650f, 150f);
+            rect.sizeDelta = new Vector2(800f, 200f);
             statusLabel = status.GetComponent<TextMeshProUGUI>();
             statusLabel.font = TMP_Settings.defaultFontAsset;
             statusLabel.fontSize = 20f;
@@ -128,7 +129,8 @@ namespace BadEngineering.UI
             statusLabel.text = $"State: {physical} | Station: {station}\n" +
                                vehiclePhysics + "\n" +
                                "WASD Move/Drive  Space Jump  Mouse Look/Fire\n" +
-                               "E Interact/Pickup/Attach/Recover/Exit  Q Drop  1-3 Select";
+                               "E Pickup/Seat/Exit  F Attach/Recover  Q Drop  1-3 Select\n" +
+                               "Middle: Placement axis  RMB: Aim  Wheel: Zero distance";
         }
 
         private void WeaponSlotText(int index, out string label, out bool selected)
@@ -140,10 +142,30 @@ namespace BadEngineering.UI
                 return;
             }
 
-            var weapon = weaponSlots.GetWeapon(index);
-            label = weapon == null
+            var item = weaponSlots.GetItem(index);
+            var weapon = item as BadEngineering.Weapons.Weapon;
+            label = item == null
                 ? $"{index + 1}: Empty"
-                : $"{index + 1}: {weapon.DisplayName} [{weapon.State}]";
+                : weapon != null ? $"{index + 1}: {weapon.DisplayName} [{weapon.State}]" : $"{index + 1}: Tire";
+        }
+
+        private void OnGUI()
+        {
+            if (weaponSlots == null) return;
+            float x = Screen.width * 0.5f, y = Screen.height * 0.5f;
+            GUI.Label(new Rect(x - 6f, y - 12f, 30f, 30f), "+");
+            var placement = weaponSlots.GetComponent<WeaponPlacementController>();
+            if (placement != null && placement.HasPreview)
+                GUI.Label(new Rect(x + 25f, y + 30f, 240f, 25f), "Placement: " + placement.Mode);
+            var gun = weaponSlots.EquippedWeapon as BadEngineering.Weapons.TestProjectileWeapon;
+            if (gun == null || !gun.IsAiming || gun.Settings == null || gun.Settings.aimMode != BadEngineering.Weapons.WeaponAimMode.Heavy) return;
+            for (int i = -2; i <= 2; i++)
+            {
+                float distance = gun.ZeroDistance + i * gun.Settings.zeroDistanceStep;
+                if (distance < gun.Settings.zeroDistanceRange.x || distance > gun.Settings.zeroDistanceRange.y) continue;
+                GUI.Label(new Rect(x + 30f, y - i * 24f, 160f, 24f), (i == 0 ? "> " : "  ") + distance.ToString("0") + " m");
+            }
+            if (!gun.ZeroReachable) GUI.Label(new Rect(x + 30f, y + 80f, 200f, 25f), "Out of ballistic range");
         }
 
         private readonly struct SlotView

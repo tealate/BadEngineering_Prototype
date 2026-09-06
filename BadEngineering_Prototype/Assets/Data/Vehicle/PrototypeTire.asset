@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BadEngineering.Vehicle.TireDefinition
   radius: 0.48
   mass: 18
-  grip: 1.1
+  grip: 3
   spring: 22000
   damping: 2800
   drivePower: 6500

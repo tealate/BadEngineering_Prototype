@@ -45,6 +45,7 @@ namespace BadEngineering.Vehicle
             if (visualRoot != null && appliedTire == null)
             {
                 appliedTire = tire;
+                ConfigureMountedCollider();
                 return;
             }
 
@@ -70,6 +71,28 @@ namespace BadEngineering.Vehicle
             }
 
             appliedTire = tire;
+            ConfigureMountedCollider();
+        }
+
+        private void ConfigureMountedCollider()
+        {
+            if (visualRoot == null) return;
+            PrototypeCollision.SetLayer(visualRoot.gameObject, PrototypeCollision.MountedTire);
+            if (visualRoot.GetComponent<Collider>() == null)
+            {
+                var collider = visualRoot.gameObject.AddComponent<BoxCollider>();
+                var mesh = visualRoot.GetComponent<MeshFilter>();
+                if (mesh != null && mesh.sharedMesh != null)
+                { collider.center = mesh.sharedMesh.bounds.center; collider.size = mesh.sharedMesh.bounds.size; }
+            }
+        }
+
+        public void RefreshReplicaVisual(Rigidbody body, TireDefinition tire, float steering)
+        {
+            if (tire == null) return;
+            bool hitGround = TryGetGroundHit(body, -transform.up, tire.SuspensionLength + tire.Radius, out RaycastHit hit);
+            WheelCenter = transform.position - transform.up * (hitGround ? Mathf.Max(0f, hit.distance - tire.Radius) : tire.SuspensionLength);
+            UpdateVisual(tire, steering);
         }
 
         void Awake()
@@ -115,7 +138,10 @@ namespace BadEngineering.Vehicle
             UpdateVisual(tire, input.Steering);
 
             if (!IsGrounded)
+            {
+                SimulateSideContact(body, tire, wheelCount);
                 return;
+            }
 
             // 接地点の速度。
             // タイヤの横グリップ・駆動・ブレーキで使用する。
@@ -255,7 +281,7 @@ namespace BadEngineering.Vehicle
                 // 現在そのタイヤが受け持っている垂直荷重に比例させる。
                 float maximumGripForce =
                     suspensionForce *
-                    tire.Grip;
+                    tire.FrictionForNormal(hit.normal, transform.right);
 
                 float lateralForceMagnitude =
                     Mathf.Min(
@@ -350,6 +376,9 @@ namespace BadEngineering.Vehicle
 
                 Rigidbody hitBody =
                     candidate.rigidbody;
+                int layer = candidate.collider.gameObject.layer;
+                if (layer == PrototypeCollision.Player || layer == PrototypeCollision.Weapon ||
+                    layer == PrototypeCollision.MountedTire || layer == PrototypeCollision.TireItem) continue;
 
                 // 自分自身は無視。
                 //
@@ -373,6 +402,24 @@ namespace BadEngineering.Vehicle
 
             return closestDistance <
                    float.PositiveInfinity;
+        }
+
+        private void SimulateSideContact(Rigidbody body, TireDefinition tire, int wheelCount)
+        {
+            // 横転時はサスペンションRayと地面が平行になるため、重力方向にも接触を探す。
+            Vector3 down = Physics.gravity.normalized;
+            if (Mathf.Abs(Vector3.Dot(transform.right, down)) < 0.65f) return;
+            if (!Physics.Raycast(WheelCenter - down * tire.Radius, down, out RaycastHit hit,
+                tire.Radius * 1.5f, 1 << 0, QueryTriggerInteraction.Ignore)) return;
+            float penetration = tire.Radius * 1.5f - hit.distance;
+            float normalSpeed = Vector3.Dot(body.GetPointVelocity(hit.point), hit.normal);
+            float load = Mathf.Clamp(penetration * tire.Spring - normalSpeed * tire.Damping, 0f,
+                body.mass * Physics.gravity.magnitude / Mathf.Max(1, wheelCount) * tire.MaximumSuspensionLoad);
+            body.AddForceAtPosition(hit.normal * load, hit.point);
+            Vector3 slip = Vector3.ProjectOnPlane(body.GetPointVelocity(hit.point), hit.normal);
+            Vector3 friction = Vector3.ClampMagnitude(-slip * body.mass / Mathf.Max(1, wheelCount) / Time.fixedDeltaTime,
+                load * tire.FrictionForNormal(hit.normal, transform.right));
+            body.AddForceAtPosition(friction, hit.point);
         }
 
         void UpdateVisual(

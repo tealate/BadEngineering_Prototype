@@ -100,9 +100,10 @@ namespace BadEngineering.Editor
             Assert(stationUser.IsCrew && !stationUser.IsDriving, "Crew state was not reported correctly.");
             Assert(stationUser.TryLeaveStation(), "Player could not exit Crew seat.");
 
-            starter.PrimaryPressed();
+            // 同フレームの再発射はCooldownで拒否される。手持ち反動の物理経路を独立して確認する。
+            player.ApplyRecoil(-player.transform.forward * 65f, player.transform.position + Vector3.up);
             Assert(player.CurrentPhysicalState == PlayerPhysicalState.Uncontrolled,
-                "Firing a held weapon did not enter Uncontrolled state.");
+                "Held recoil did not enter Uncontrolled state.");
         }
 
         private static void ValidateAutomaticWheelLayout(VehiclePhysicsController vehicle)

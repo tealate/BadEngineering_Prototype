@@ -23,7 +23,8 @@ namespace BadEngineering.Vehicle
         public bool CanInteract(GameObject interactor)
         {
             PlayerWeaponSlots slots = interactor != null ? interactor.GetComponent<PlayerWeaponSlots>() : null;
-            return vehicleHost != null && slots != null && slots.EquippedWeapon != null;
+            return vehicleHost != null && slots != null && slots.EquippedWeapon != null &&
+                slots.EquippedWeapon.State == WeaponState.Held && slots.EquippedWeapon.Owner == slots;
         }
 
         public bool TryInteract(GameObject interactor)
@@ -35,7 +36,7 @@ namespace BadEngineering.Vehicle
         {
             PlayerWeaponSlots slots = interactor != null ? interactor.GetComponent<PlayerWeaponSlots>() : null;
             Weapon weapon = slots?.EquippedWeapon;
-            if (vehicleHost == null || weapon == null)
+            if (!CanInteract(interactor))
             {
                 return false;
             }
@@ -47,6 +48,15 @@ namespace BadEngineering.Vehicle
             }
             Quaternion rotation = Quaternion.LookRotation(forward, hitNormal);
             return weapon.AttachTo(vehicleHost, hitPoint + hitNormal * surfaceOffset, rotation, WeaponState.Attached);
+        }
+
+        public WeaponHost Host => vehicleHost != null ? vehicleHost : GetComponentInParent<WeaponHost>();
+
+        public bool ConfirmPlacement(GameObject interactor, Vector3 position, Quaternion rotation)
+        {
+            if (!CanInteract(interactor)) return false;
+            return interactor.GetComponent<PlayerWeaponSlots>().EquippedWeapon.AttachTo(
+                Host, position, rotation, WeaponState.Attached);
         }
     }
 }

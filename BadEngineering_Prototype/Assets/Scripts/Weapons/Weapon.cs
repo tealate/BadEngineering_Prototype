@@ -17,6 +17,8 @@ namespace BadEngineering.Weapons
     {
         [SerializeField] private string displayName = "Weapon";
         [SerializeField, Min(0.01f)] private float weaponMass = 8f;
+        [SerializeField] private WeaponSettings settings;
+        public WeaponSettings Settings => settings;
 
         private Rigidbody weaponBody;
         private Collider[] weaponColliders;
@@ -43,9 +45,10 @@ namespace BadEngineering.Weapons
 
         public void SetSelected(bool selected)
         {
+            if (!selected) { PrimaryReleased(); SecondaryReleased(); }
             if (State == WeaponState.Held)
             {
-                gameObject.SetActive(selected);
+                foreach (Renderer visual in GetComponentsInChildren<Renderer>(true)) visual.enabled = selected;
             }
         }
 
@@ -58,12 +61,17 @@ namespace BadEngineering.Weapons
             }
 
             IWeaponHost ownerHost = Owner.GetComponent<IWeaponHost>();
+            if (state == WeaponState.Attached &&
+                (State != WeaponState.Held || host.HostBehaviour.GetComponent<BadEngineering.Vehicle.VehiclePhysicsController>() == null))
+                return false;
             if (state == WeaponState.Held && !ReferenceEquals(host, ownerHost))
             {
                 return false;
             }
 
             WeaponHost previousHost = Host?.HostBehaviour as WeaponHost;
+            PrimaryReleased();
+            SecondaryReleased();
             SetPhysicalMode(state);
             transform.SetParent(host.WeaponAttachRoot, true);
             transform.SetPositionAndRotation(worldPosition, worldRotation);
@@ -95,6 +103,8 @@ namespace BadEngineering.Weapons
 
         public void Drop(Vector3 worldPosition, Vector3 inheritedVelocity)
         {
+            PrimaryReleased();
+            SecondaryReleased();
             PlayerWeaponSlots previousOwner = Owner;
             Owner = null;
             WeaponHost previousHost = Host?.HostBehaviour as WeaponHost;
@@ -140,6 +150,16 @@ namespace BadEngineering.Weapons
         public virtual void PrimaryReleased() { }
         public virtual void SecondaryPressed() { }
         public virtual void SecondaryReleased() { }
+        public void ApplyReplica(PlayerWeaponSlots owner, IWeaponHost host, WeaponState state)
+        {
+            if (Owner != owner || State != state || !ReferenceEquals(Host, host))
+            {
+                Owner?.RemoveOwnedWeapon(this);
+                Owner = owner; Host = host; State = state;
+                transform.SetParent(host != null ? host.WeaponAttachRoot : null, true);
+                SetPhysicalMode(state);
+            }
+        }
         protected virtual void OnStateChanged() { }
 
         protected virtual void OnDestroy()
@@ -177,6 +197,14 @@ namespace BadEngineering.Weapons
                 }
             }
 
+            // Attached時にWorldと衝突する武器は車体の複合Colliderとして力を伝える。
+            if (state == WeaponState.Attached && settings != null && settings.collideWithWorld && weaponBody != null)
+            {
+                Destroy(weaponBody);
+                weaponBody = null;
+            }
+            BadEngineering.Vehicle.PrototypeCollision.SetLayer(gameObject, BadEngineering.Vehicle.PrototypeCollision.Weapon);
+
             for (int i = 0; i < weaponColliders.Length; i++)
             {
                 Collider weaponCollider = weaponColliders[i];
@@ -188,7 +216,7 @@ namespace BadEngineering.Weapons
                 weaponCollider.enabled = state == WeaponState.Held
                     ? false
                     : originalEnabledStates[weaponCollider];
-                weaponCollider.isTrigger = state == WeaponState.Attached || originalTriggerStates[weaponCollider];
+                weaponCollider.isTrigger = (state == WeaponState.Attached && (settings == null || !settings.collideWithWorld)) || originalTriggerStates[weaponCollider];
             }
         }
 

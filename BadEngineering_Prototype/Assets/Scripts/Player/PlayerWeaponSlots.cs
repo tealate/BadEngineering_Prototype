@@ -10,22 +10,30 @@ namespace BadEngineering.Player
         [SerializeField, Range(1, 3)] private int slotCount = 3;
         [SerializeField, Min(0f)] private float dropDistance = 1.2f;
 
-        private Weapon[] slots;
+        private MonoBehaviour[] slots;
         private int equippedSlot = -1;
 
-        public Weapon EquippedWeapon => equippedSlot >= 0 && equippedSlot < slots.Length ? slots[equippedSlot] : null;
+        public MonoBehaviour EquippedItem => slots != null && equippedSlot >= 0 && equippedSlot < slots.Length ? slots[equippedSlot] : null;
+        public Weapon EquippedWeapon => EquippedItem as Weapon;
+        public MonoBehaviour GetItem(int index) => slots != null && index >= 0 && index < slots.Length ? slots[index] : null;
+        public int IndexOf(MonoBehaviour item) => slots != null ? Array.IndexOf(slots, item) : -1;
+        public void SetReplicaItem(int index, MonoBehaviour item)
+        {
+            if (index >= 0 && index < slots.Length) slots[index] = item;
+        }
+        public void SetReplicaSelection(int index) => equippedSlot = index;
         public int SlotCount => slots != null ? slots.Length : slotCount;
         public int EquippedSlotIndex => equippedSlot;
         public event Action SlotsChanged;
 
         public Weapon GetWeapon(int slotIndex)
         {
-            return slots != null && slotIndex >= 0 && slotIndex < slots.Length ? slots[slotIndex] : null;
+            return GetItem(slotIndex) as Weapon;
         }
 
         private void Awake()
         {
-            slots = new Weapon[slotCount];
+            slots = new MonoBehaviour[slotCount];
 
             Weapon[] discoveredWeapons = GetComponentsInChildren<Weapon>(true);
             foreach (Weapon weapon in discoveredWeapons)
@@ -72,7 +80,12 @@ namespace BadEngineering.Player
 
         public void RemoveOwnedWeapon(Weapon weapon)
         {
-            int index = Array.IndexOf(slots, weapon);
+            RemoveItem(weapon);
+        }
+
+        public void RemoveItem(MonoBehaviour item)
+        {
+            int index = Array.IndexOf(slots, item);
             if (index < 0)
             {
                 return;
@@ -94,8 +107,10 @@ namespace BadEngineering.Player
             }
 
             EquippedWeapon?.SetSelected(false);
+            if (EquippedItem is Vehicle.TireItem oldPart) oldPart.SetSelected(false);
             equippedSlot = slots[slotIndex] != null ? slotIndex : -1;
             EquippedWeapon?.SetSelected(true);
+            if (EquippedItem is Vehicle.TireItem newPart) newPart.SetSelected(true);
             SlotsChanged?.Invoke();
         }
 
@@ -103,6 +118,11 @@ namespace BadEngineering.Player
 
         public void DropSelectedWeapon()
         {
+            if (EquippedItem is Vehicle.TireItem part)
+            {
+                part.Drop(transform.position + transform.forward * dropDistance + Vector3.up * 0.5f, GetComponent<Rigidbody>().linearVelocity);
+                return;
+            }
             Weapon weapon = EquippedWeapon;
             if (weapon == null)
             {
@@ -110,9 +130,7 @@ namespace BadEngineering.Player
             }
 
             Rigidbody body = GetComponent<Rigidbody>();
-            Vector3 position = weapon.State == WeaponState.Attached
-                ? weapon.transform.position + Vector3.up * 0.2f
-                : transform.position + transform.forward * dropDistance + Vector3.up * 0.5f;
+            Vector3 position = transform.position + transform.forward * dropDistance + Vector3.up * 0.5f;
             Vector3 inheritedVelocity = weapon.Host?.Body != null
                 ? weapon.Host.Body.GetPointVelocity(position)
                 : body.linearVelocity;
@@ -123,5 +141,18 @@ namespace BadEngineering.Player
         public void PrimaryReleased() => EquippedWeapon?.PrimaryReleased();
         public void SecondaryPressed() => EquippedWeapon?.SecondaryPressed();
         public void SecondaryReleased() => EquippedWeapon?.SecondaryReleased();
+
+        public bool AddPart(Vehicle.TireItem part)
+        {
+            if (part == null || part.Carrier != null || Array.IndexOf(slots, part) >= 0) return false;
+            int index = Array.FindIndex(slots, item => item == null);
+            if (index < 0) return false;
+            slots[index] = part;
+            part.Hold(this);
+            if (equippedSlot < 0) SelectSlot(index);
+            part.SetSelected(equippedSlot == index);
+            SlotsChanged?.Invoke();
+            return true;
+        }
     }
 }

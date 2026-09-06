@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5210e62fe501724998379ac78ddc52f, type: 3}
+  m_Name: Direct
+  m_EditorClassIdentifier: Assembly-CSharp::BadEngineering.Weapons.WeaponSettings
+  aimMode: 1
+  placementBasis: 1
+  rotationOffset: {x: 0, y: 0, z: 0}
+  cooldown: 0.15
+  automatic: 1
+  projectileSpeed: 28
+  projectileLifetime: 8
+  recoilImpulse: 65
+  projectilePrefab: {fileID: 5137167645030780176, guid: 5a1cb6bb0ba38d3468f192df300d22ea, type: 3}
+  collideWithWorld: 0
+  yawLimits: {x: -90, y: 90}
+  pitchLimits: {x: -20, y: 65}
+  yawSpeed: 20
+  pitchSpeed: 12
+  aimSensitivity: 0.1
+  zeroDistanceRange: {x: 10, y: 70}
+  zeroDistanceStep: 5
+  aimCameraOffset: {x: 0, y: 0.3, z: -0.35}

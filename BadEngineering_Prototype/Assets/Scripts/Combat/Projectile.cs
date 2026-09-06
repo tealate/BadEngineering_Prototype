@@ -22,26 +22,30 @@ namespace BadEngineering.Combat
                     Physics.IgnoreCollision(projectileCollider, sourceCollider, true);
                 }
             }
-            Destroy(gameObject, lifetime);
+            expiresAt = Time.time + lifetime;
+        }
+        private float expiresAt = float.PositiveInfinity;
+        private void Update()
+        {
+            if (BadEngineering.Network.GameplayAuthority.CanSimulate && Time.time >= expiresAt) Remove();
+        }
+        private void Remove()
+        {
+            var networkObject = GetComponent<Unity.Netcode.NetworkObject>();
+            if (networkObject != null && networkObject.IsSpawned) networkObject.Despawn();
+            else Destroy(gameObject);
         }
 
         private void OnCollisionEnter(Collision collision)
         {
+            if (!BadEngineering.Network.GameplayAuthority.CanSimulate) return;
             if (sourceRoot != null && collision.transform.root.gameObject == sourceRoot)
             {
                 return;
             }
 
-            MonoBehaviour[] behaviours = collision.collider.GetComponentsInParent<MonoBehaviour>();
-            foreach (MonoBehaviour behaviour in behaviours)
-            {
-                if (behaviour is IDamageable damageable)
-                {
-                    damageable.ApplyDamage(damage);
-                    break;
-                }
-            }
-            Destroy(gameObject);
+            // 今回はHitと消滅だけを扱う。HP・Damageはテスト範囲外。
+            Remove();
         }
     }
 }

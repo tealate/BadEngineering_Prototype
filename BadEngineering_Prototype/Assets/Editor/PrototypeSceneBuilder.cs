@@ -14,8 +14,8 @@ namespace BadEngineering.Editor
     public static class PrototypeSceneBuilder
     {
         private const string ScenePath = "Assets/Scenes/PrototypeTest.unity";
-        private const string TirePrefabPath = "Assets/Prefabs/Vehicle/PrototypeTire.prefab";
-        private const string WheeledMovementPrefabPath = "Assets/Prefabs/Vehicle/WheeledMovement.prefab";
+        private const string TirePrefabPath = "Assets/Prefabs/Vehicle/Movement/Ground/Wheeled/Tires/PrototypeTire.prefab";
+        private const string WheeledMovementPrefabPath = "Assets/Prefabs/Vehicle/Movement/Ground/Wheeled/WheeledMovement.prefab";
         private const string TireDefinitionPath = "Assets/Data/Vehicle/PrototypeTire.asset";
 
         [MenuItem("Bad Engineering/Build Prototype Test Scene")]

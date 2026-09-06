@@ -44,8 +44,11 @@ namespace BadEngineering.Vehicle
             }
             if (body != null)
             {
-                body.linearVelocity = Vector3.zero;
-                body.angularVelocity = Vector3.zero;
+                if (!body.isKinematic)
+                {
+                    body.linearVelocity = Vector3.zero;
+                    body.angularVelocity = Vector3.zero;
+                }
                 body.isKinematic = true;
                 body.detectCollisions = false;
             }
@@ -85,9 +88,10 @@ namespace BadEngineering.Vehicle
                 }
                 if (body != null)
                 {
-                    body.isKinematic = false;
+                    body.isKinematic = !BadEngineering.Network.GameplayAuthority.CanSimulate;
                     body.detectCollisions = true;
-                    body.linearVelocity = station.Vehicle != null ? station.Vehicle.Body.GetPointVelocity(transform.position) : Vector3.zero;
+                    if (!body.isKinematic)
+                        body.linearVelocity = station.Vehicle != null ? station.Vehicle.Body.GetPointVelocity(transform.position) : Vector3.zero;
                 }
             }
         }

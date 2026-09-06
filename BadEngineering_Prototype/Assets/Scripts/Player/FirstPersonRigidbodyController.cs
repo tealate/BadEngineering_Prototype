@@ -95,20 +95,101 @@ namespace BadEngineering.Player
             }
         }
 
+        private bool fireHeld, aimHeld;
+        private float brakeInput;
+        private float lastCommandTime;
+        public Camera PlayerCamera => playerCamera;
+        public Transform HeadPivot => headPivot;
+
         private void Update()
         {
-            ReadInput();
-            ReadWeaponInput();
-            UpdateLook();
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-prototypeProbe") >= 0) return;
+            if (!BadEngineering.Network.GameplayAuthority.IsLocal(gameObject)) return;
+            var keyboard = Keyboard.current;
+            var mouse = Mouse.current;
+            if (keyboard == null || mouse == null || Cursor.lockState != CursorLockMode.Locked) return;
+            var placement = GetComponent<WeaponPlacementController>();
+            placement?.Refresh(playerCamera, mouse.delta.ReadValue(), mouse.middleButton.wasPressedThisFrame);
+            var command = new PlayerCommand
+            {
+                move = new Vector2(ReadAxis(keyboard.aKey, keyboard.dKey), ReadAxis(keyboard.sKey, keyboard.wKey)),
+                look = placement != null && placement.ConsumesLook ? Vector2.zero : mouse.delta.ReadValue(),
+                scroll = mouse.scroll.ReadValue().y,
+                jump = keyboard.spaceKey.wasPressedThisFrame, brake = keyboard.spaceKey.isPressed,
+                fire = mouse.leftButton.isPressed, aim = mouse.rightButton.isPressed,
+                drop = keyboard.qKey.wasPressedThisFrame, interact = keyboard.eKey.wasPressedThisFrame,
+                place = keyboard.fKey.wasPressedThisFrame,
+                slot = keyboard.digit1Key.wasPressedThisFrame ? 0 : keyboard.digit2Key.wasPressedThisFrame ? 1 : keyboard.digit3Key.wasPressedThisFrame ? 2 : -1,
+                rayOrigin = playerCamera.transform.position, rayDirection = playerCamera.transform.forward
+            };
+            if (placement != null && placement.HasPreview)
+            {
+                command.hasPlacement = true;
+                command.placementPosition = placement.Surface.Host.transform.InverseTransformPoint(placement.Position);
+                command.placementRotation = Quaternion.Inverse(placement.Surface.Host.transform.rotation) * placement.Rotation;
+                var vehicleObject = placement.Surface.Host.GetComponent<Unity.Netcode.NetworkObject>();
+                command.vehicleId = vehicleObject != null ? vehicleObject.NetworkObjectId : 0;
+            }
+            var network = GetComponent<BadEngineering.Network.NetworkPlayer>();
+            if (network != null && network.IsSpawned) network.Submit(command);
+            else ApplyCommand(command);
+        }
+
+        /// <summary>ローカル・ネットワーク双方が使うHost側の操作入口。</summary>
+        public void ApplyCommand(PlayerCommand command)
+        {
+            lastCommandTime = Time.time;
+            moveInput = Vector2.ClampMagnitude(command.move, 1f);
+            brakeInput = command.brake ? 1f : 0f;
+            jumpQueued |= command.jump && !stationUser.IsUsingStation;
+            if (!stationUser.IsDriving)
+            {
+                if (command.slot >= 0) weaponSlots.SelectSlot(command.slot);
+                if (command.drop) weaponSlots.DropSelectedWeapon();
+                if (command.aim != aimHeld)
+                {
+                    if (command.aim) weaponSlots.SecondaryPressed(); else weaponSlots.SecondaryReleased();
+                }
+                if (command.fire != fireHeld)
+                {
+                    if (command.fire) weaponSlots.PrimaryPressed(); else weaponSlots.PrimaryReleased();
+                }
+                aimHeld = command.aim; fireHeld = command.fire;
+            }
+            else { fireHeld = aimHeld = false; }
+            var gun = weaponSlots.EquippedWeapon as BadEngineering.Weapons.TestProjectileWeapon;
+            if (gun != null && gun.IsAiming) gun.ApplyAim(command.look, command.scroll);
+            else ApplyLook(command.look);
+            var interactor = GetComponent<BadEngineering.Interaction.PlayerInteractor>();
+            if (command.interact) interactor.InteractRay(command.rayOrigin, command.rayDirection);
+            if (command.place) interactor.PlaceCommand(command);
+        }
+
+        public void StopInput()
+        {
+            moveInput = Vector2.zero; brakeInput = 0f; jumpQueued = false;
+            fireHeld = aimHeld = false;
+            weaponSlots.PrimaryReleased(); weaponSlots.SecondaryReleased();
+        }
+
+        private void ApplyLook(Vector2 delta)
+        {
+            Vector2 lookDelta = Vector2.ClampMagnitude(delta, 500f) * mouseSensitivity;
+            if (playerPhysics.CanMove && !stationUser.IsUsingStation) yaw += lookDelta.x;
+            else freeLookYaw += lookDelta.x;
+            pitch = Mathf.Clamp(pitch - lookDelta.y, -verticalLookLimit, verticalLookLimit);
+            headPivot.localRotation = Quaternion.Euler(pitch, freeLookYaw, 0f);
         }
 
         private void FixedUpdate()
         {
+            if (!BadEngineering.Network.GameplayAuthority.CanSimulate) return;
+            if (Time.time - lastCommandTime > 0.5f) StopInput();
             if (stationUser != null && stationUser.IsUsingStation)
             {
                 if (stationUser.IsDriving)
                 {
-                    float brake = Keyboard.current != null && Keyboard.current.spaceKey.isPressed ? 1f : 0f;
+                    float brake = brakeInput;
                     stationUser.CurrentStation.Vehicle?.SetMovementInput(
                         new VehicleInput(moveInput.y, moveInput.x, brake));
                 }
@@ -146,120 +227,9 @@ namespace BadEngineering.Player
             }
         }
 
-        private void ReadInput()
-        {
-            if (!playerPhysics.CanMove)
-            {
-                moveInput = Vector2.zero;
-                jumpQueued = false;
-                return;
-            }
-
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard == null)
-            {
-                moveInput = Vector2.zero;
-                return;
-            }
-
-            moveInput = new Vector2(
-                ReadAxis(keyboard.aKey, keyboard.dKey),
-                ReadAxis(keyboard.sKey, keyboard.wKey));
-            moveInput = Vector2.ClampMagnitude(moveInput, 1f);
-
-            if (stationUser != null && stationUser.IsUsingStation)
-            {
-                jumpQueued = false;
-                return;
-            }
-
-            if (keyboard.spaceKey.wasPressedThisFrame)
-            {
-                jumpQueued = true;
-            }
-        }
-
         private static float ReadAxis(KeyControl negative, KeyControl positive)
         {
             return (positive.isPressed ? 1f : 0f) - (negative.isPressed ? 1f : 0f);
-        }
-
-        private void UpdateLook()
-        {
-            Mouse mouse = Mouse.current;
-            if (mouse == null || headPivot == null)
-            {
-                return;
-            }
-
-            Vector2 lookDelta = mouse.delta.ReadValue() * mouseSensitivity;
-            if (playerPhysics.CanMove && (stationUser == null || !stationUser.IsUsingStation))
-            {
-                yaw += lookDelta.x;
-            }
-            else
-            {
-                freeLookYaw += lookDelta.x;
-            }
-            pitch = Mathf.Clamp(pitch - lookDelta.y, -verticalLookLimit, verticalLookLimit);
-            headPivot.localRotation = Quaternion.Euler(pitch, freeLookYaw, 0f);
-        }
-
-        private void ReadWeaponInput()
-        {
-            if (weaponSlots == null)
-            {
-                return;
-            }
-
-            if (stationUser != null && stationUser.IsDriving)
-            {
-                return;
-            }
-
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard != null)
-            {
-                if (keyboard.digit1Key.wasPressedThisFrame)
-                {
-                    weaponSlots.EquipSlot(0);
-                }
-                else if (keyboard.digit2Key.wasPressedThisFrame)
-                {
-                    weaponSlots.EquipSlot(1);
-                }
-                else if (keyboard.digit3Key.wasPressedThisFrame)
-                {
-                    weaponSlots.EquipSlot(2);
-                }
-                if (keyboard.qKey.wasPressedThisFrame)
-                {
-                    weaponSlots.DropSelectedWeapon();
-                }
-            }
-
-            Mouse mouse = Mouse.current;
-            if (mouse == null)
-            {
-                return;
-            }
-
-            if (mouse.leftButton.wasPressedThisFrame)
-            {
-                weaponSlots.PrimaryPressed();
-            }
-            if (mouse.leftButton.wasReleasedThisFrame)
-            {
-                weaponSlots.PrimaryReleased();
-            }
-            if (mouse.rightButton.wasPressedThisFrame)
-            {
-                weaponSlots.SecondaryPressed();
-            }
-            if (mouse.rightButton.wasReleasedThisFrame)
-            {
-                weaponSlots.SecondaryReleased();
-            }
         }
 
         private void ApplyRotation()

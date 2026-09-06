@@ -27,6 +27,12 @@ namespace BadEngineering.Vehicle
             else if (wheelPoints == null || wheelPoints.Length == 0)
                 wheelPoints = GetComponentsInChildren<WheelPoint>(true);
         }
+        private void Start() => Vehicle.GetComponent<BadEngineering.Weapons.WeaponHost>()?.RefreshMassProperties();
+        private void LateUpdate()
+        {
+            if (BadEngineering.Network.GameplayAuthority.CanSimulate || wheelPoints == null) return;
+            foreach (var point in wheelPoints) point?.RefreshReplicaVisual(Body, currentTire, Input.Steering);
+        }
 
         [ContextMenu("Rebuild Wheel Layout")]
         public void RebuildWheelLayout()
@@ -152,6 +158,8 @@ namespace BadEngineering.Vehicle
                 return;
             foreach (WheelPoint point in wheelPoints)
                 point?.ApplyTire(tire);
+            Vehicle.GetComponent<BadEngineering.Weapons.WeaponHost>()?.RefreshMassProperties();
+            Vehicle.Body.WakeUp();
         }
         public override void SimulatePhysics()
         {
