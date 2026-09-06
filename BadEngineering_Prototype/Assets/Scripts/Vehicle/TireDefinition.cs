@@ -5,7 +5,10 @@ namespace BadEngineering.Vehicle
     public sealed class TireDefinition : ScriptableObject
     {
         [SerializeField, Min(.05f)] float radius = .48f;
-        [SerializeField, Min(0f)] float mass = 18f, grip = 6f, spring = 22000f, damping = 2800f, drivePower = 6500f, brakePower = 9000f;
+        [SerializeField, Min(0f)] float mass = 18f;
+        [SerializeField, Min(0f), Tooltip("Maximum lateral force as a multiple of the wheel's current vertical load.")]
+        float grip = 1.1f;
+        [SerializeField, Min(0f)] float spring = 22000f, damping = 2800f, drivePower = 6500f, brakePower = 9000f;
         [SerializeField, Range(0f, 60f)] float maximumSteeringAngle = 30f;
         [SerializeField, Min(.01f)] float suspensionLength = .7f;
         [SerializeField, Min(1f)] float maximumSuspensionLoad = 3f;

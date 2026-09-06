@@ -228,11 +228,28 @@ namespace BadEngineering.Vehicle
 
             if (Mathf.Abs(lateralSpeed) >= lateralVelocityDeadZone)
             {
+                float supportedMass =
+                    body.mass /
+                    Mathf.Max(1, wheelCount);
+
+                float forceToCancelSlip =
+                    Mathf.Abs(lateralSpeed) *
+                    supportedMass /
+                    Time.fixedDeltaTime;
+
+                float maximumGripForce =
+                    suspensionForce *
+                    tire.Grip;
+
+                float lateralForceMagnitude =
+                    Mathf.Min(
+                        forceToCancelSlip,
+                        maximumGripForce);
+
                 Vector3 lateralForce =
                     -right *
-                    lateralSpeed *
-                    tire.Grip *
-                    body.mass;
+                    Mathf.Sign(lateralSpeed) *
+                    lateralForceMagnitude;
 
                 body.AddForceAtPosition(
                     lateralForce,
